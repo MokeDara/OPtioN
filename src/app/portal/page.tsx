@@ -1,0 +1,636 @@
+"use client";
+import { useState } from "react";
+import { BookOpen, Building2, Copy, KeyRound, LifeBuoy, Mail, Pencil, Plus, RotateCcw, Send, UserCheck, UserPlus, UserX, X } from "lucide-react";
+import { AppHeader, Empty, fmtDate } from "@/components/ui";
+import { SignInForm } from "@/components/sign-in";
+import { Avatar } from "@/components/profile";
+import { Courses } from "@/components/staff";
+import { Professors } from "@/components/professors";
+import { STATUS, StatusChip, TOPICS, Thread } from "@/components/support";
+import { useStore } from "@/lib/store";
+import { assignStaff, createProgramme, createStaff, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
+import { STAFF_ROLES, type Programme, type TicketStatus, type User, type Year } from "@/lib/types";
+
+type Tab = "programmes" | "access" | "courses" | "professors" | "support" | "mail";
+type Creds = { name: string; email: string; username: string; password: string; link: string };
+type StaffRole = "director" | "assistant" | "admin";
+const ROLE: Record<string, { label: string; cls: string }> = {
+  director: { label: "Course director", cls: "bg-brand/10 text-brand" },
+  assistant: { label: "Assistant", cls: "bg-sky-100 text-sky-800" },
+  admin: { label: "School team", cls: "bg-ink text-white" },
+};
+
+export default function PortalPage() {
+  const { school, user, resetDemo } = useStore();
+  const [tab, setTab] = useState<Tab>("programmes");
+  const [invite, setInvite] = useState<{ role: StaffRole; programmeId?: string } | null>(null);
+  const [creds, setCreds] = useState<Creds | null>(null);
+
+  if (!user || user.role !== "admin")
+    return (
+      <SignInForm
+        roles={["admin"]}
+        badge="School"
+        title="School of Engineering portal"
+        subtitle="For the School's management and technical team: programmes, staff access, courses, professors and support requests."
+        idLabel="Username"
+        idPlaceholder="admin"
+        demo={[
+          { label: "Management", username: "admin", icon: <Building2 className="size-4" /> },
+          { label: "Technical", username: "tech", icon: <KeyRound className="size-4" /> },
+        ]}
+        onSignedIn={() => undefined}
+      />
+    );
+
+  const openTickets = school.tickets.filter((t) => t.status !== "resolved").length;
+  const tabs: { id: Tab; label: string; badge?: number }[] = [
+    { id: "programmes", label: "Programmes" },
+    { id: "access", label: "Staff access" },
+    { id: "courses", label: "Courses" },
+    { id: "professors", label: "Professors" },
+    { id: "support", label: "Support", badge: openTickets },
+    { id: "mail", label: "Sent mail" },
+  ];
+
+  return (
+    <>
+      <AppHeader user={user} />
+      <main className="mx-auto max-w-6xl px-5 py-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand">Management portal</p>
+            <h1 className="font-display text-3xl font-bold">{school.school}</h1>
+          </div>
+          <button className="btn-ghost" onClick={() => confirm("Reset all demo data?") && resetDemo()} title="Reset demo data">
+            <RotateCcw className="size-4" /> Reset demo
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-5">
+          {[
+            { k: "Programmes", v: school.programmes.length },
+            { k: "Students", v: school.users.filter((u) => u.role === "student").length },
+            { k: "Staff", v: school.users.filter((u) => STAFF_ROLES.includes(u.role) && u.active !== false).length },
+            { k: "Professors", v: school.professors.length },
+            { k: "Open support", v: openTickets },
+          ].map((s) => (
+            <div key={s.k} className="card p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{s.k}</p>
+              <p className="mt-1 font-display text-3xl font-bold">{s.v}</p>
+            </div>
+          ))}
+        </div>
+
+        <nav className="mt-8 flex gap-1 overflow-x-auto border-b border-line">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold ${tab === t.id ? "border-brand text-ink" : "border-transparent text-ink/50 hover:text-ink"}`}
+            >
+              {t.label}
+              {!!t.badge && <span className="rounded-full bg-amber-400 px-1.5 text-xs text-ink">{t.badge}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mt-6">
+          {tab === "programmes" && <Programmes onInvite={setInvite} onCourses={() => setTab("courses")} />}
+          {tab === "access" && <StaffAccess onInvite={setInvite} onCreds={setCreds} />}
+          {tab === "courses" && <CoursesTab />}
+          {tab === "professors" && <Professors canEdit />}
+          {tab === "support" && <Support />}
+          {tab === "mail" && <SentMail />}
+        </div>
+      </main>
+
+      {invite && (
+        <AddStaff
+          initial={invite}
+          onClose={() => setInvite(null)}
+          onCreated={(c) => {
+            setInvite(null);
+            setCreds(c);
+          }}
+        />
+      )}
+      {creds && <CredentialsDialog creds={creds} onClose={() => setCreds(null)} />}
+    </>
+  );
+}
+
+// ───────────── Programmes ─────────────
+function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; programmeId?: string }) => void; onCourses: () => void }) {
+  const { school, act, setViewProgramme } = useStore();
+  const [editing, setEditing] = useState<Programme | "new" | null>(null);
+  const departments = [...new Set(school.programmes.map((p) => p.department))].sort();
+
+  return (
+    <div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl text-sm text-ink/60">
+          Each department runs its programmes. Create a programme, add its courses, then assign a course director and assistants — they manage option selection from there.
+        </p>
+        <button className="btn-primary" onClick={() => setEditing("new")}>
+          <Plus className="size-4" /> New programme
+        </button>
+      </div>
+
+      {departments.map((dep) => (
+        <section key={dep} className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold">
+            <Building2 className="size-5 text-brand" /> {dep}
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {school.programmes
+              .filter((p) => p.department === dep)
+              .map((p) => {
+                const staff = school.users.filter((u) => STAFF_ROLES.includes(u.role) && u.programmeId === p.id);
+                const nStudents = school.users.filter((u) => u.role === "student" && u.programmeId === p.id).length;
+                const courses = school.courses.filter((c) => c.programmeId === p.id);
+                const hasDirector = staff.some((s) => s.role === "director" && s.active !== false);
+                return (
+                  <div key={p.id} className="card p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wide text-brand">{p.short}</p>
+                        <h3 className="font-display text-lg font-bold leading-tight">{p.name}</h3>
+                        <p className="text-sm text-ink/55">{p.degree} · {p.ects} ECTS · {p.duration}</p>
+                      </div>
+                      <button className="rounded-lg p-2 hover:bg-paper" onClick={() => setEditing(p)} aria-label={`Edit ${p.short}`}>
+                        <Pencil className="size-4" />
+                      </button>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-paper py-2">
+                        <p className="font-display text-xl font-bold">{nStudents}</p>
+                        <p className="text-[11px] text-ink/50">students</p>
+                      </div>
+                      <div className="rounded-xl bg-paper py-2">
+                        <p className="font-display text-xl font-bold">{courses.filter((c) => c.groupId).length}</p>
+                        <p className="text-[11px] text-ink/50">optional</p>
+                      </div>
+                      <div className="rounded-xl bg-paper py-2">
+                        <p className="font-display text-xl font-bold">{courses.filter((c) => !c.groupId).length}</p>
+                        <p className="text-[11px] text-ink/50">mandatory</p>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-ink/45">Programme team</p>
+                    <div className="mt-2 space-y-2">
+                      {!hasDirector && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">No course director yet.</p>}
+                      {staff.map((s) => (
+                        <div key={s.id} className={`flex items-center gap-2 text-sm ${s.active === false ? "opacity-50" : ""}`}>
+                          <Avatar user={s} size={28} />
+                          <span className="flex-1 truncate font-medium">{s.name}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${ROLE[s.role].cls}`}>{ROLE[s.role].label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button className="btn-ghost py-1.5 text-xs" onClick={() => onInvite({ role: "director", programmeId: p.id })}>
+                        <UserPlus className="size-3.5" /> Assign director
+                      </button>
+                      <button className="btn-ghost py-1.5 text-xs" onClick={() => onInvite({ role: "assistant", programmeId: p.id })}>
+                        <UserPlus className="size-3.5" /> Assign assistant
+                      </button>
+                      <button
+                        className="btn-brand ml-auto py-1.5 text-xs"
+                        onClick={() => {
+                          setViewProgramme(p.id);
+                          onCourses();
+                        }}
+                      >
+                        <BookOpen className="size-3.5" /> Courses
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      ))}
+
+      {editing && (
+        <ProgrammeEditor
+          p={editing === "new" ? undefined : editing}
+          onClose={() => setEditing(null)}
+          onSave={(input, existing) => {
+            if (existing) return act((d) => updateProgramme(d, { ...existing, ...input }));
+            let id: string | undefined;
+            const ok = act((d, n) => {
+              const r = createProgramme(d, input, n);
+              if (r.ok) id = r.programmeId;
+              return r;
+            });
+            if (ok && id) setViewProgramme(id);
+            return ok;
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProgrammeEditor({ p, onClose, onSave }: { p?: Programme; onClose: () => void; onSave: (input: NewProgramme, existing?: Programme) => boolean }) {
+  const { school } = useStore();
+  const [f, setF] = useState<NewProgramme>(
+    p ?? { name: "", short: "", department: "", degree: "Master's degree", ects: 120, duration: "4 curricular semesters", regime: "Daytime" },
+  );
+  const departments = [...new Set(school.programmes.map((x) => x.department))];
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4" onClick={onClose}>
+      <form
+        className="card w-full max-w-lg p-6"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (onSave(f, p)) onClose();
+        }}
+      >
+        <h2 className="font-display text-xl font-bold">{p ? `Edit ${p.short}` : "New programme"}</h2>
+        {!p && <p className="mt-1 text-sm text-ink/60">Year 1 and Year 2 selection rounds are created for you; adjust their dates later.</p>}
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div className="sm:col-span-3">
+            <label className="label">Department</label>
+            <input className="input" list="departments" value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })} placeholder="Department of Information Systems" required />
+            <datalist id="departments">
+              {departments.map((d) => (
+                <option key={d} value={d} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label className="label">Short name</label>
+            <input className="input" value={f.short} onChange={(e) => setF({ ...f, short: e.target.value.toUpperCase() })} placeholder="MEGSI" required />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Full name</label>
+            <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
+          </div>
+          <div>
+            <label className="label">Degree</label>
+            <input className="input" value={f.degree} onChange={(e) => setF({ ...f, degree: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">ECTS</label>
+            <input type="number" className="input" value={f.ects} onChange={(e) => setF({ ...f, ects: Number(e.target.value) })} />
+          </div>
+          <div>
+            <label className="label">Regime</label>
+            <input className="input" value={f.regime} onChange={(e) => setF({ ...f, regime: e.target.value })} />
+          </div>
+          <div className="sm:col-span-3">
+            <label className="label">Duration</label>
+            <input className="input" value={f.duration} onChange={(e) => setF({ ...f, duration: e.target.value })} />
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary">{p ? "Save" : "Create programme"}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ───────────── Staff access ─────────────
+function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole }) => void; onCreds: (c: Creds) => void }) {
+  const { school, user: me, act } = useStore();
+  const staff = school.users.filter((u) => STAFF_ROLES.includes(u.role) || u.role === "admin");
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl text-sm text-ink/60">
+          Directors and assistants manage one programme and sign in at <b className="text-ink">{origin}/staff</b>. School team members (management and technical staff) use this portal.
+        </p>
+        <button className="btn-primary" onClick={() => onInvite({ role: "director" })}>
+          <Plus className="size-4" /> Give access
+        </button>
+      </div>
+
+      <div className="card divide-y divide-line">
+        {staff.map((u) => (
+          <div key={u.id} className={`flex flex-wrap items-center gap-4 p-4 ${u.active === false ? "opacity-55" : ""}`}>
+            <Avatar user={u} size={44} />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">
+                {u.name} <span className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${ROLE[u.role].cls}`}>{ROLE[u.role].label}</span>
+                {u.active === false && <span className="ml-1 rounded-full bg-ink/10 px-2 py-0.5 text-xs font-semibold text-ink/60">Disabled</span>}
+              </p>
+              <p className="text-sm text-ink/55">
+                {u.username} · {u.email}
+                {u.invitedAt && ` · credentials sent ${fmtDate(u.invitedAt)}`}
+              </p>
+            </div>
+            {u.role !== "admin" && (
+              <select
+                className="input w-auto py-1.5 text-sm"
+                value={u.programmeId ?? ""}
+                onChange={(e) => e.target.value && act((d) => assignStaff(d, u.id, e.target.value))}
+                aria-label={`Programme managed by ${u.name}`}
+              >
+                <option value="" disabled>No programme</option>
+                {school.programmes.map((p) => (
+                  <option key={p.id} value={p.id}>{p.short}</option>
+                ))}
+              </select>
+            )}
+            {u.id !== me?.id && u.role !== "admin" && (
+              <>
+                <button
+                  className="btn-ghost py-1.5 text-xs"
+                  onClick={() => {
+                    if (!confirm(`Create a new password for ${u.name} and email it to ${u.email}? The old one stops working.`)) return;
+                    let c: { username: string; password: string } | undefined;
+                    act((d, n) => {
+                      const r = resetPassword(d, u.id, n, origin);
+                      if (r.ok) c = r.credentials;
+                      return r;
+                    });
+                    if (c) onCreds({ name: u.name, email: u.email, link: `${origin}/staff`, ...c });
+                  }}
+                >
+                  <KeyRound className="size-3.5" /> Reset & resend
+                </button>
+                <button className="btn-ghost py-1.5 text-xs" onClick={() => act((d) => setUserActive(d, u.id, u.active === false))}>
+                  {u.active === false ? (
+                    <>
+                      <UserCheck className="size-3.5" /> Enable
+                    </>
+                  ) : (
+                    <>
+                      <UserX className="size-3.5" /> Disable
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AddStaff({ initial, onClose, onCreated }: { initial: { role: StaffRole; programmeId?: string }; onClose: () => void; onCreated: (c: Creds) => void }) {
+  const { school, act } = useStore();
+  const [f, setF] = useState({ name: "", email: "", title: "", role: initial.role, programmeId: initial.programmeId ?? school.programmes[0]?.id ?? "" });
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4" onClick={onClose}>
+      <form
+        className="card w-full max-w-lg p-6"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          let c: { username: string; password: string } | undefined;
+          act((d, n) => {
+            const r = createStaff(d, { ...f, programmeId: f.role === "admin" ? undefined : f.programmeId }, n, window.location.origin);
+            if (r.ok) c = r.credentials;
+            return r;
+          });
+          if (c) onCreated({ name: f.name, email: f.email, link: `${window.location.origin}${f.role === "admin" ? "/portal" : "/staff"}`, ...c });
+        }}
+      >
+        <h2 className="font-display text-xl font-bold">Give access</h2>
+        <p className="mt-1 text-sm text-ink/60">We create a username and password and email them with the sign-in link.</p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">Access</label>
+            <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as StaffRole })}>
+              <option value="director">Course director</option>
+              <option value="assistant">Assistant</option>
+              <option value="admin">School team (portal)</option>
+            </select>
+          </div>
+          {f.role !== "admin" ? (
+            <div>
+              <label className="label">Programme</label>
+              <select className="input" value={f.programmeId} onChange={(e) => setF({ ...f, programmeId: e.target.value })} required>
+                {school.programmes.map((p) => (
+                  <option key={p.id} value={p.id}>{p.short} — {p.department.replace(/^Department of /, "")}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div />
+          )}
+          <div className="sm:col-span-2">
+            <label className="label">Full name</label>
+            <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
+          </div>
+          <div>
+            <label className="label">Email</label>
+            <input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required />
+          </div>
+          <div>
+            <label className="label">Title (optional)</label>
+            <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={f.role === "admin" ? "Technical support" : "Associate Professor"} />
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-brand">
+            <Mail className="size-4" /> Create & send
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function CredentialsDialog({ creds, onClose }: { creds: Creds; onClose: () => void }) {
+  const text = `Sign in: ${creds.link}\nUsername: ${creds.username}\nPassword: ${creds.password}`;
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4" onClick={onClose}>
+      <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
+        <div className="flex items-start justify-between">
+          <h2 className="font-display text-xl font-bold">Access sent to {creds.name.split(" ")[0]}</h2>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-paper" aria-label="Close">
+            <X className="size-5" />
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-ink/60">
+          Logged in Sent mail to {creds.email}. Real email delivery comes with Supabase, so for now copy these or open them in your email app.
+        </p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-paper p-4 font-mono text-sm">{text}</pre>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <button
+            className="btn-ghost"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(text);
+                setCopied(true);
+              } catch {}
+            }}
+          >
+            <Copy className="size-4" /> {copied ? "Copied" : "Copy"}
+          </button>
+          <a
+            className="btn-brand"
+            href={`mailto:${creds.email}?subject=${encodeURIComponent("Your OPtioN! access")}&body=${encodeURIComponent(`Hi ${creds.name.split(" ")[0]},\n\nYou now have access to OPtioN!.\n\n${text}\n\nPlease change your password after signing in.`)}`}
+          >
+            <Mail className="size-4" /> Open in email app
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ───────────── Courses (per programme) ─────────────
+function CoursesTab() {
+  const { school, viewProgramme, setViewProgramme } = useStore();
+  const [year, setYear] = useState<Year>(1);
+  const p = school.programmes.find((x) => x.id === viewProgramme);
+  return (
+    <div>
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <select className="input w-auto font-semibold" value={viewProgramme} onChange={(e) => setViewProgramme(e.target.value)} aria-label="Programme">
+          {school.programmes.map((x) => (
+            <option key={x.id} value={x.id}>{x.short} — {x.name}</option>
+          ))}
+        </select>
+        <div className="flex w-fit gap-1 rounded-xl border border-line bg-white p-1 text-sm">
+          {([1, 2] as Year[]).map((y) => (
+            <button key={y} onClick={() => setYear(y)} className={`rounded-lg px-3 py-1.5 font-semibold ${year === y ? "bg-brand text-white" : "text-ink/60"}`}>
+              Year {y}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-ink/55">
+          Use <b className="text-ink">⇅</b> on a course to make it optional or mandatory.
+        </p>
+      </div>
+      {p ? <Courses year={year} /> : <Empty title="No programme yet" text="Create one under Programmes." />}
+    </div>
+  );
+}
+
+// ───────────── Support ─────────────
+function Support() {
+  const { school, act } = useStore();
+  const [filter, setFilter] = useState<TicketStatus | "all">("all");
+  const [openId, setOpenId] = useState<string | null>(school.tickets.find((t) => t.status !== "resolved")?.id ?? null);
+  const [reply, setReply] = useState("");
+  const list = school.tickets
+    .filter((t) => filter === "all" || t.status === filter)
+    .sort((a, b) => Number(a.status === "resolved") - Number(b.status === "resolved") || b.updatedAt.localeCompare(a.updatedAt));
+  const t = school.tickets.find((x) => x.id === openId);
+  const programme = (id?: string) => school.programmes.find((p) => p.id === id)?.short;
+
+  if (school.tickets.length === 0) return <Empty icon={LifeBuoy} title="No support requests" text="Messages sent with the help button on any page arrive here." />;
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_1.3fr]">
+      <div>
+        <div className="mb-3 flex gap-1 rounded-xl border border-line bg-white p-1 text-sm">
+          {(["all", "open", "in_progress", "resolved"] as const).map((s) => (
+            <button key={s} onClick={() => setFilter(s)} className={`flex-1 rounded-lg px-2 py-1 font-semibold ${filter === s ? "bg-ink text-white" : "text-ink/60"}`}>
+              {s === "all" ? "All" : STATUS[s].label}
+            </button>
+          ))}
+        </div>
+        <div className="card divide-y divide-line">
+          {list.length === 0 && <p className="p-6 text-center text-sm text-ink/50">Nothing here.</p>}
+          {list.map((x) => (
+            <button key={x.id} onClick={() => setOpenId(x.id)} className={`block w-full p-4 text-left ${openId === x.id ? "bg-brand/5" : "hover:bg-paper/60"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-semibold">{x.subject}</span>
+                <StatusChip status={x.status} />
+              </div>
+              <p className="mt-1 truncate text-xs text-ink/50">
+                {x.name}
+                {x.role && ` · ${x.role}`}
+                {programme(x.programmeId) && ` · ${programme(x.programmeId)}`} · {TOPICS[x.topic]} · {fmtDate(x.updatedAt)}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {t ? (
+        <div className="card flex flex-col p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-bold">{t.subject}</h2>
+              <p className="text-sm text-ink/55">
+                {t.name} · <a className="text-brand hover:underline" href={`mailto:${t.email}`}>{t.email}</a>
+                {t.role && ` · ${t.role}`}
+                {programme(t.programmeId) && ` · ${programme(t.programmeId)}`}
+              </p>
+              <p className="mt-1 text-xs text-ink/45">
+                {TOPICS[t.topic]}
+                {t.page && ` · sent from ${t.page}`} · opened {fmtDate(t.createdAt)}
+              </p>
+            </div>
+            <select
+              className="input w-auto py-1.5 text-sm"
+              value={t.status}
+              onChange={(e) => act((d, n) => setTicketStatus(d, t.id, e.target.value as TicketStatus, n))}
+              aria-label="Status"
+            >
+              {Object.entries(STATUS).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-5 flex-1">
+            <Thread t={t} />
+          </div>
+          <form
+            className="mt-5 space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (act((d, n, me) => replyTicket(d, t.id, reply, me, n))) setReply("");
+            }}
+          >
+            <textarea className="input min-h-24" placeholder={`Reply to ${t.name.split(" ")[0]}… (also emailed)`} value={reply} onChange={(e) => setReply(e.target.value)} />
+            <div className="flex justify-end gap-2">
+              {t.status !== "resolved" && (
+                <button type="button" className="btn-ghost" onClick={() => act((d, n) => setTicketStatus(d, t.id, "resolved", n))}>
+                  Mark resolved
+                </button>
+              )}
+              <button className="btn-brand">
+                <Send className="size-4" /> Send reply
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <Empty icon={LifeBuoy} title="Pick a request" />
+      )}
+    </div>
+  );
+}
+
+// ───────────── Sent mail ─────────────
+function SentMail() {
+  const { school } = useStore();
+  const [open, setOpen] = useState<string | null>(null);
+  const mails = school.emails.filter((e) => e.kind && e.kind !== "system");
+  const KIND = { invite: "Access", list: "Student list", announcement: "Announcement", support: "Support reply", system: "System" } as const;
+  return (
+    <div className="card divide-y divide-line">
+      {mails.length === 0 && <p className="p-8 text-center text-sm text-ink/50">Nothing sent yet.</p>}
+      {mails.map((m) => (
+        <button key={m.id} onClick={() => setOpen(open === m.id ? null : m.id)} className="block w-full p-4 text-left hover:bg-paper/60">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold">{KIND[m.kind ?? "system"]}</span>
+            <span className="flex-1 font-semibold">{m.subject}</span>
+            <span className="text-xs text-ink/45">{fmtDate(m.sentAt)}</span>
+          </div>
+          <p className="mt-1 text-sm text-ink/55">
+            To: {m.toAddresses?.length ? m.toAddresses.join(", ") : `${m.to.length} student${m.to.length === 1 ? "" : "s"}`}
+          </p>
+          {open === m.id && <pre className="mt-3 whitespace-pre-wrap rounded-lg bg-paper p-3 font-sans text-sm text-ink/80">{m.body}</pre>}
+        </button>
+      ))}
+    </div>
+  );
+}
+

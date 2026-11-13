@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #121417;
+  --color-paper: #f7f5f2;
+  --color-line: #e4e1da;
+  --color-band: #e5e4dc; /* study-plan year rows */
+  --color-brand: #a6192e;
+  --color-brand-dark: #7e1222;
+  --color-brand-soft: #f8e1e4;
+  --font-display: var(--font-space), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility card {
+  @apply rounded-2xl border border-line bg-white;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40;
+}
+@utility btn-primary {
+  @apply btn bg-ink text-white hover:bg-black;
+}
+@utility btn-brand {
+  @apply btn bg-brand text-white hover:bg-brand-dark;
+}
+@utility btn-ghost {
+  @apply btn border border-line bg-white text-ink hover:bg-paper;
+}
+
+@utility input {
+  @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15;
+}
+
+@utility label {
+  @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink/50;
+}
