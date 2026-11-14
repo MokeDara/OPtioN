@@ -24,7 +24,19 @@ Open http://localhost:3000.
 |---|---|---|
 | `/login` | Students (new students: `/signup`) | `pg50001` (Year 2), `pg50101` (Year 1) |
 | `/staff` | Course director & assistants | `director`, `assistant` |
-| `/portal` | Department: staff access, professors, courses, sent mail | `admin` |
+| `/portal` | School of Engineering team: programmes, staff access, courses, professors, support | `admin` (management), `tech` (technical) |
+
+**Master's degrees:** MEGSI, MSI, MECD and METI are loaded with their official information (contacts, description,
+learning outcomes, access to higher education, careers), which students see under **My Master's** on their profile.
+Only MEGSI has courses and students so far. Each Master's has exactly one course director and any number of assistants;
+a director or assistant can also be linked to a professor record so they appear as the professor of courses.
+
+**Structure:** the School of Engineering (portal) creates programmes such as MEGSI under their departments, adds courses,
+and assigns each programme a course director and assistants, who then manage it. Students and staff only see their own programme.
+Any course can be switched between optional and mandatory with the ⇅ button (a new Opção slot is created when needed).
+
+**Support:** a floating help button on every page sends a message to the School team (portal → Support), who reply,
+set the status and can see where the message was sent from. People follow the conversation under "My requests".
 
 Staff can't sign up themselves: the portal creates their account and emails the link, username and a temporary password
 (for now the email is logged under **Sent mail**, with copy / open-in-email-app buttons).

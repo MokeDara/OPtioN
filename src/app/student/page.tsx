@@ -106,6 +106,9 @@ export default function StudentPage() {
                 <p className="mt-1 text-ink/60">
                   {round.label}: {fmtDate(round.opensAt)} → {fmtDate(round.closesAt)}
                 </p>
+                <Link href="/profile#programme" className="mt-1 inline-block text-sm font-semibold text-brand hover:underline">
+                  About my Master&apos;s →
+                </Link>
               </div>
             </div>
             <div className="flex items-center gap-2 rounded-xl bg-paper px-4 py-3">

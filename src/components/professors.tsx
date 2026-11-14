@@ -10,6 +10,20 @@ import { courseListCsv, deleteProfessor, lastListSent, saveProfessor, seatsTaken
 import type { Professor } from "@/lib/types";
 
 /** The department's professors. The portal can edit; course directors can view and send lists. */
+/** "Course director · MEGSI" when a staff account teaches as this professor. */
+function useStaffRole(professorId: string) {
+  const { school } = useStore();
+  const u = school.users.find((x) => x.professorId === professorId && x.active !== false);
+  if (!u) return null;
+  const prog = school.programmes.find((p) => p.id === u.programmeId)?.short;
+  return `${u.role === "director" ? "Course director" : "Assistant"}${prog ? ` · ${prog}` : ""}`;
+}
+
+function StaffBadge({ professorId }: { professorId: string }) {
+  const label = useStaffRole(professorId);
+  return label ? <span className="mt-1 inline-block rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">{label}</span> : null;
+}
+
 export function Professors({ canEdit }: { canEdit: boolean }) {
   const { db } = useStore();
   const [q, setQ] = useState("");
@@ -45,6 +59,7 @@ export function Professors({ canEdit }: { canEdit: boolean }) {
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{p.title} {p.name}</p>
                   <p className="truncate text-sm text-ink/55">{p.area ?? "—"}</p>
+                  <StaffBadge professorId={p.id} />
                 </div>
               </div>
               <p className="mt-3 truncate text-sm text-brand">{p.email}</p>
@@ -84,6 +99,7 @@ function ProfessorSheet({ p, canEdit, onEdit, onClose }: { p: Professor; canEdit
             <div className="translate-y-2">
               <h2 className="font-display text-2xl font-bold">{p.title} {p.name}</h2>
               <p className="text-sm text-ink/60">{[p.area, p.office].filter(Boolean).join(" · ")}</p>
+              <StaffBadge professorId={p.id} />
             </div>
             {canEdit && (
               <button className="btn-ghost ml-auto" onClick={onEdit}>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, KeyRound, Pencil } from "lucide-react";
 import { AppHeader, homeFor } from "@/components/ui";
 import { ProfileCard, ProfileFields } from "@/components/profile";
+import { ProgrammeInfo } from "@/components/programme-info";
 import { useStore } from "@/lib/store";
 import { changePassword } from "@/lib/logic";
 import type { User } from "@/lib/types";
@@ -65,6 +66,12 @@ export default function ProfilePage() {
           </form>
         ) : (
           <ProfileCard db={db} user={user} showPrivate />
+        )}
+
+        {user.programmeId && (
+          <div className="mt-6">
+            <ProgrammeInfo p={db.programme} schoolContact={db.schoolContact} />
+          </div>
         )}
 
         <form

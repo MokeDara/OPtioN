@@ -24,6 +24,8 @@ export interface User {
   dob?: string; // YYYY-MM-DD, optional
   /** Options taken in earlier years (Year 2 students' Opção 1 and 2): groupId → courseId */
   pastOptions?: Record<string, string>;
+  /** Staff who also teach: the professor record they appear as on courses. */
+  professorId?: string;
   createdAt?: string;
   active?: boolean; // staff accounts can be disabled from the portal (undefined = active)
   invitedAt?: string; // when the portal sent the credentials
@@ -79,6 +81,22 @@ export interface Programme {
   duration: string;
   regime: string;
   createdAt?: string;
+  // Official information, shown to students on their profile
+  academicYear?: string; // e.g. "2026/2027"
+  location?: string;
+  scientificArea?: string;
+  contacts?: ProgrammeContact[];
+  description?: string;
+  learningOutcomes?: string[];
+  higherEducation?: string; // "Access to higher education"
+  careers?: string[];
+}
+
+export interface ProgrammeContact {
+  role: string; // "Course Director", "Academic Mobility Coordinator"
+  name: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface Round {
@@ -181,6 +199,7 @@ export interface SupportTicket {
 export interface DB {
   version: number; // bump when the demo data shape changes
   school: string; // "School of Engineering"
+  schoolContact?: string; // address, phone, email of the School
   programmes: Programme[];
   /** The programme this view is about (set by scope()); for unscoped data, the first programme. */
   programme: Programme;

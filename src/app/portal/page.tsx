@@ -1,15 +1,16 @@
 "use client";
 import { useState } from "react";
-import { BookOpen, Building2, Copy, KeyRound, LifeBuoy, Mail, Pencil, Plus, RotateCcw, Send, UserCheck, UserPlus, UserX, X } from "lucide-react";
+import { BookOpen, Building2, Copy, Info, KeyRound, LifeBuoy, Mail, Pencil, Plus, RotateCcw, Send, UserCheck, UserPlus, UserX, X } from "lucide-react";
 import { AppHeader, Empty, fmtDate } from "@/components/ui";
 import { SignInForm } from "@/components/sign-in";
 import { Avatar } from "@/components/profile";
 import { Courses } from "@/components/staff";
 import { Professors } from "@/components/professors";
 import { STATUS, StatusChip, TOPICS, Thread } from "@/components/support";
+import { ProgrammeInfo } from "@/components/programme-info";
 import { useStore } from "@/lib/store";
-import { assignStaff, createProgramme, createStaff, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
-import { STAFF_ROLES, type Programme, type TicketStatus, type User, type Year } from "@/lib/types";
+import { assignStaff, createProgramme, createStaff, directorOf, linkStaffProfessor, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
+import { STAFF_ROLES, type Programme, type ProgrammeContact, type TicketStatus, type Year } from "@/lib/types";
 
 type Tab = "programmes" | "access" | "courses" | "professors" | "support" | "mail";
 type Creds = { name: string; email: string; username: string; password: string; link: string };
@@ -45,7 +46,7 @@ export default function PortalPage() {
 
   const openTickets = school.tickets.filter((t) => t.status !== "resolved").length;
   const tabs: { id: Tab; label: string; badge?: number }[] = [
-    { id: "programmes", label: "Programmes" },
+    { id: "programmes", label: "Master's degrees" },
     { id: "access", label: "Staff access" },
     { id: "courses", label: "Courses" },
     { id: "professors", label: "Professors" },
@@ -124,16 +125,17 @@ export default function PortalPage() {
 function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; programmeId?: string }) => void; onCourses: () => void }) {
   const { school, act, setViewProgramme } = useStore();
   const [editing, setEditing] = useState<Programme | "new" | null>(null);
+  const [info, setInfo] = useState<Programme | null>(null);
   const departments = [...new Set(school.programmes.map((p) => p.department))].sort();
 
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-ink/60">
-          Each department runs its programmes. Create a programme, add its courses, then assign a course director and assistants — they manage option selection from there.
+          Only the School&apos;s team can add a Master&apos;s degree. Each one has its own courses and professors, one course director and any number of assistants, who manage option selection from there.
         </p>
         <button className="btn-primary" onClick={() => setEditing("new")}>
-          <Plus className="size-4" /> New programme
+          <Plus className="size-4" /> New Master&apos;s degree
         </button>
       </div>
 
@@ -149,18 +151,28 @@ function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; 
                 const staff = school.users.filter((u) => STAFF_ROLES.includes(u.role) && u.programmeId === p.id);
                 const nStudents = school.users.filter((u) => u.role === "student" && u.programmeId === p.id).length;
                 const courses = school.courses.filter((c) => c.programmeId === p.id);
-                const hasDirector = staff.some((s) => s.role === "director" && s.active !== false);
+                const hasDirector = !!directorOf(school, p.id);
+                const official = p.contacts?.find((c) => c.role === "Course Director");
                 return (
                   <div key={p.id} className="card p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-wide text-brand">{p.short}</p>
                         <h3 className="font-display text-lg font-bold leading-tight">{p.name}</h3>
-                        <p className="text-sm text-ink/55">{p.degree} · {p.ects} ECTS · {p.duration}</p>
+                        <p className="text-sm text-ink/55">
+                          {p.degree} · {p.ects} ECTS · {p.regime}
+                          {p.academicYear && ` · ${p.academicYear}`}
+                        </p>
+                        {official && <p className="mt-1 text-xs text-ink/50">Official course director: {official.name}</p>}
                       </div>
-                      <button className="rounded-lg p-2 hover:bg-paper" onClick={() => setEditing(p)} aria-label={`Edit ${p.short}`}>
-                        <Pencil className="size-4" />
-                      </button>
+                      <div className="flex">
+                        <button className="rounded-lg p-2 hover:bg-paper" onClick={() => setInfo(p)} aria-label={`Official information for ${p.short}`} title="Official information">
+                          <Info className="size-4" />
+                        </button>
+                        <button className="rounded-lg p-2 hover:bg-paper" onClick={() => setEditing(p)} aria-label={`Edit ${p.short}`} title="Edit">
+                          <Pencil className="size-4" />
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                       <div className="rounded-xl bg-paper py-2">
@@ -178,7 +190,7 @@ function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; 
                     </div>
                     <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-ink/45">Programme team</p>
                     <div className="mt-2 space-y-2">
-                      {!hasDirector && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">No course director yet.</p>}
+                      {!hasDirector && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">No course director account yet.</p>}
                       {staff.map((s) => (
                         <div key={s.id} className={`flex items-center gap-2 text-sm ${s.active === false ? "opacity-50" : ""}`}>
                           <Avatar user={s} size={28} />
@@ -188,9 +200,11 @@ function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; 
                       ))}
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <button className="btn-ghost py-1.5 text-xs" onClick={() => onInvite({ role: "director", programmeId: p.id })}>
-                        <UserPlus className="size-3.5" /> Assign director
-                      </button>
+                      {!hasDirector && (
+                        <button className="btn-ghost py-1.5 text-xs" onClick={() => onInvite({ role: "director", programmeId: p.id })}>
+                          <UserPlus className="size-3.5" /> Assign director
+                        </button>
+                      )}
                       <button className="btn-ghost py-1.5 text-xs" onClick={() => onInvite({ role: "assistant", programmeId: p.id })}>
                         <UserPlus className="size-3.5" /> Assign assistant
                       </button>
@@ -211,6 +225,16 @@ function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; 
         </section>
       ))}
 
+      {info && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/45 p-4 sm:p-10" onClick={() => setInfo(null)}>
+          <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
+            <button onClick={() => setInfo(null)} className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-1.5 hover:bg-white" aria-label="Close">
+              <X className="size-5" />
+            </button>
+            <ProgrammeInfo p={info} schoolContact={school.schoolContact} />
+          </div>
+        </div>
+      )}
       {editing && (
         <ProgrammeEditor
           p={editing === "new" ? undefined : editing}
@@ -232,28 +256,42 @@ function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; 
   );
 }
 
+const lines = (t: string) => t.split("\n").map((x) => x.trim()).filter(Boolean);
+const contactsToText = (cs?: ProgrammeContact[]) => (cs ?? []).map((c) => [c.role, c.name, c.email ?? "", c.phone ?? ""].join(" | ")).join("\n");
+const textToContacts = (t: string): ProgrammeContact[] =>
+  lines(t).map((l) => {
+    const [role, name, email, phone] = l.split("|").map((x) => x.trim());
+    return { role: role || "Contact", name: name || role, email: email || undefined, phone: phone || undefined };
+  });
+
 function ProgrammeEditor({ p, onClose, onSave }: { p?: Programme; onClose: () => void; onSave: (input: NewProgramme, existing?: Programme) => boolean }) {
   const { school } = useStore();
   const [f, setF] = useState<NewProgramme>(
-    p ?? { name: "", short: "", department: "", degree: "Master's degree", ects: 120, duration: "4 curricular semesters", regime: "Daytime" },
+    p ?? { name: "", short: "", department: "", degree: "Master's degree", ects: 120, duration: "4 academic semesters", regime: "Daytime", location: "Azurém Campus, Guimarães" },
   );
+  const [contacts, setContacts] = useState(contactsToText(p?.contacts) || "Course Director | ");
+  const [outcomes, setOutcomes] = useState((p?.learningOutcomes ?? []).join("\n"));
+  const [careers, setCareers] = useState((p?.careers ?? []).join("\n"));
   const departments = [...new Set(school.programmes.map((x) => x.department))];
+  const set = (patch: Partial<NewProgramme>) => setF({ ...f, ...patch });
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4" onClick={onClose}>
       <form
-        className="card w-full max-w-lg p-6"
+        className="card max-h-[92vh] w-full max-w-2xl overflow-y-auto p-6"
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
           e.preventDefault();
-          if (onSave(f, p)) onClose();
+          if (onSave({ ...f, contacts: textToContacts(contacts), learningOutcomes: lines(outcomes), careers: lines(careers) }, p)) onClose();
         }}
       >
-        <h2 className="font-display text-xl font-bold">{p ? `Edit ${p.short}` : "New programme"}</h2>
+        <h2 className="font-display text-xl font-bold">{p ? `Edit ${p.short}` : "New Master's degree"}</h2>
         {!p && <p className="mt-1 text-sm text-ink/60">Year 1 and Year 2 selection rounds are created for you; adjust their dates later.</p>}
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+
+        <p className="mt-6 text-xs font-bold uppercase tracking-wider text-brand">General</p>
+        <div className="mt-2 grid gap-4 sm:grid-cols-3">
           <div className="sm:col-span-3">
             <label className="label">Department</label>
-            <input className="input" list="departments" value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })} placeholder="Department of Information Systems" required />
+            <input className="input" list="departments" value={f.department} onChange={(e) => set({ department: e.target.value })} placeholder="Department of Information Systems" required />
             <datalist id="departments">
               {departments.map((d) => (
                 <option key={d} value={d} />
@@ -262,32 +300,69 @@ function ProgrammeEditor({ p, onClose, onSave }: { p?: Programme; onClose: () =>
           </div>
           <div>
             <label className="label">Short name</label>
-            <input className="input" value={f.short} onChange={(e) => setF({ ...f, short: e.target.value.toUpperCase() })} placeholder="MEGSI" required />
+            <input className="input" value={f.short} onChange={(e) => set({ short: e.target.value.toUpperCase() })} placeholder="MEGSI" required />
           </div>
           <div className="sm:col-span-2">
             <label className="label">Full name</label>
-            <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
+            <input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} required />
+          </div>
+          <div>
+            <label className="label">Academic year</label>
+            <input className="input" value={f.academicYear ?? ""} onChange={(e) => set({ academicYear: e.target.value || undefined })} placeholder="2026/2027" />
           </div>
           <div>
             <label className="label">Degree</label>
-            <input className="input" value={f.degree} onChange={(e) => setF({ ...f, degree: e.target.value })} />
+            <input className="input" value={f.degree} onChange={(e) => set({ degree: e.target.value })} />
           </div>
           <div>
             <label className="label">ECTS</label>
-            <input type="number" className="input" value={f.ects} onChange={(e) => setF({ ...f, ects: Number(e.target.value) })} />
+            <input type="number" className="input" value={f.ects} onChange={(e) => set({ ects: Number(e.target.value) })} />
+          </div>
+          <div>
+            <label className="label">Duration</label>
+            <input className="input" value={f.duration} onChange={(e) => set({ duration: e.target.value })} />
           </div>
           <div>
             <label className="label">Regime</label>
-            <input className="input" value={f.regime} onChange={(e) => setF({ ...f, regime: e.target.value })} />
+            <input className="input" value={f.regime} onChange={(e) => set({ regime: e.target.value })} placeholder="Daytime / Mixed" />
+          </div>
+          <div>
+            <label className="label">Location</label>
+            <input className="input" value={f.location ?? ""} onChange={(e) => set({ location: e.target.value || undefined })} />
           </div>
           <div className="sm:col-span-3">
-            <label className="label">Duration</label>
-            <input className="input" value={f.duration} onChange={(e) => setF({ ...f, duration: e.target.value })} />
+            <label className="label">Predominant scientific area</label>
+            <input className="input" value={f.scientificArea ?? ""} onChange={(e) => set({ scientificArea: e.target.value || undefined })} />
           </div>
         </div>
-        <div className="mt-6 flex justify-end gap-2">
+
+        <p className="mt-8 text-xs font-bold uppercase tracking-wider text-brand">Shown to students on their profile</p>
+        <div className="mt-2 space-y-4">
+          <div>
+            <label className="label">Contacts — one per line: Role | Name | email | phone</label>
+            <textarea className="input min-h-20 font-mono text-xs" value={contacts} onChange={(e) => setContacts(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Description</label>
+            <textarea className="input min-h-28" value={f.description ?? ""} onChange={(e) => set({ description: e.target.value || undefined })} />
+          </div>
+          <div>
+            <label className="label">Learning outcomes — one per line</label>
+            <textarea className="input min-h-28" value={outcomes} onChange={(e) => setOutcomes(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Access to higher education</label>
+            <textarea className="input min-h-16" value={f.higherEducation ?? ""} onChange={(e) => set({ higherEducation: e.target.value || undefined })} />
+          </div>
+          <div>
+            <label className="label">Career opportunities — one per line</label>
+            <textarea className="input min-h-24" value={careers} onChange={(e) => setCareers(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 flex justify-end gap-2 border-t border-line bg-white px-6 py-4">
           <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn-primary">{p ? "Save" : "Create programme"}</button>
+          <button className="btn-primary">{p ? "Save" : "Create Master's degree"}</button>
         </div>
       </form>
     </div>
@@ -336,6 +411,24 @@ function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole })
                 {school.programmes.map((p) => (
                   <option key={p.id} value={p.id}>{p.short}</option>
                 ))}
+              </select>
+            )}
+            {u.role !== "admin" && (
+              <select
+                className="input w-auto max-w-[11rem] py-1.5 text-sm"
+                value={u.professorId ?? ""}
+                onChange={(e) => act((d) => linkStaffProfessor(d, u.id, (e.target.value || undefined) as string | undefined))}
+                aria-label={`Professor record for ${u.name}`}
+                title="Also teaches courses as…"
+              >
+                <option value="">Doesn&apos;t teach</option>
+                <option value="new">Teaches — create professor</option>
+                {school.professors
+                  .slice()
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>Teaches as {p.name}</option>
+                  ))}
               </select>
             )}
             {u.id !== me?.id && u.role !== "admin" && (

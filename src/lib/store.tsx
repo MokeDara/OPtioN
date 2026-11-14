@@ -8,8 +8,8 @@ import { createSeed } from "./seed";
 import type { Course, DB, Role, Round, User } from "./types";
 
 
-const DB_KEY = "option-demo-db-v5";
-const DB_VERSION = 5;
+const DB_KEY = "option-demo-db-v6";
+const DB_VERSION = 6;
 const SESSION_KEY = "option-session";
 
 type Toast = { id: number; kind: "ok" | "error"; text: string };

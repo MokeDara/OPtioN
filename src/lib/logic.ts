@@ -41,7 +41,19 @@ export function scope(db: DB, programmeId?: string): DB {
   };
 }
 
-export type NewProgramme = Pick<Programme, "name" | "short" | "department" | "degree" | "ects" | "duration" | "regime">;
+export type NewProgramme = Omit<Programme, "id" | "createdAt">;
+
+/** The programme's active course director (each Master's has exactly one). */
+export function directorOf(db: DB, programmeId?: string): User | undefined {
+  return db.users.find((u) => u.role === "director" && u.programmeId === programmeId && u.active !== false);
+}
+
+function oneDirector(db: DB, programmeId: string | undefined, exceptUserId?: string): string | null {
+  const d = directorOf(db, programmeId);
+  if (!d || d.id === exceptUserId) return null;
+  const p = db.programmes.find((x) => x.id === programmeId);
+  return `${p?.short ?? "This Master's"} already has a course director (${d.name}). Disable them or move them first — add others as assistants.`;
+}
 
 export function createProgramme(db: DB, input: NewProgramme, now: Date): Result & { programmeId?: string } {
   if (!input.name.trim() || !input.short.trim()) return { ok: false, error: "Enter the programme's name and short name (e.g. MEGSI)." };
@@ -72,6 +84,10 @@ export function assignStaff(db: DB, userId: string, programmeId: string): Result
   const p = db.programmes.find((x) => x.id === programmeId);
   if (!u || !STAFF_ROLES.includes(u.role)) return { ok: false, error: "Only directors and assistants are assigned to programmes." };
   if (!p) return { ok: false, error: "Programme not found." };
+  if (u.role === "director" && u.active !== false) {
+    const clash = oneDirector(db, programmeId, u.id);
+    if (clash) return { ok: false, error: clash };
+  }
   return { ok: true, db: { ...db, users: db.users.map((x) => (x.id === userId ? { ...x, programmeId } : x)) }, message: `${u.name} now manages ${p.short}.` };
 }
 
@@ -483,6 +499,10 @@ export type NewStaff = { name: string; email: string; role: "director" | "assist
 export function createStaff(db: DB, input: NewStaff, now: Date, origin: string): Result & { credentials?: { username: string; password: string } } {
   if (!STAFF_ROLES.includes(input.role) && input.role !== "admin") return { ok: false, error: "Choose director, assistant or School team." };
   if (input.role !== "admin" && !db.programmes.some((p) => p.id === input.programmeId)) return { ok: false, error: "Choose the programme they will manage." };
+  if (input.role === "director") {
+    const clash = oneDirector(db, input.programmeId);
+    if (clash) return { ok: false, error: clash };
+  }
   if (!input.name.trim() || input.name.trim().split(/\s+/).length < 2) return { ok: false, error: "Enter the full name." };
   if (!/^\S+@\S+\.\S+$/.test(input.email)) return { ok: false, error: "Enter a valid email address." };
   if (db.users.some((u) => u.email.toLowerCase() === input.email.toLowerCase())) return { ok: false, error: "Someone already uses that email." };
@@ -506,6 +526,10 @@ export function createStaff(db: DB, input: NewStaff, now: Date, origin: string):
 export function setUserActive(db: DB, userId: string, active: boolean): Result {
   const u = db.users.find((x) => x.id === userId);
   if (!u || u.role === "admin") return { ok: false, error: "Can't change this account." };
+  if (active && u.role === "director") {
+    const clash = oneDirector(db, u.programmeId, u.id);
+    if (clash) return { ok: false, error: clash };
+  }
   return { ok: true, db: { ...db, users: db.users.map((x) => (x.id === userId ? { ...x, active } : x)) }, message: `${u.name} ${active ? "can sign in again" : "can no longer sign in"}.` };
 }
 
@@ -679,4 +703,29 @@ export function setTicketStatus(db: DB, ticketId: string, status: TicketStatus, 
   const t = db.tickets.find((x) => x.id === ticketId);
   if (!t) return { ok: false, error: "Request not found." };
   return { ok: true, db: { ...db, tickets: db.tickets.map((x) => (x.id === ticketId ? { ...x, status, updatedAt: now.toISOString() } : x)) }, message: status === "resolved" ? "Marked as resolved." : "Status updated." };
+}
+
+/** Link a director/assistant to the professor record they teach as ("new" creates one from their account). */
+export function linkStaffProfessor(db: DB, userId: string, professorId: string | "new" | undefined): Result {
+  const u = db.users.find((x) => x.id === userId);
+  if (!u || !STAFF_ROLES.includes(u.role)) return { ok: false, error: "Only directors and assistants can be linked to a professor." };
+  if (professorId === undefined) return { ok: true, db: { ...db, users: db.users.map((x) => (x.id === userId ? { ...x, professorId: undefined } : x)) }, message: `${u.name} is no longer linked to a professor.` };
+  let professors = db.professors;
+  let pid = professorId;
+  if (professorId === "new") {
+    const existing = db.professors.find((p) => p.email.toLowerCase() === u.email.toLowerCase());
+    if (existing) pid = existing.id;
+    else {
+      const p: Professor = { id: uid("p"), name: u.name, title: "Prof.", email: u.email, photo: u.photo, bio: u.bio };
+      professors = [...professors, p];
+      pid = p.id;
+    }
+  } else if (!db.professors.some((p) => p.id === professorId)) return { ok: false, error: "Professor not found." };
+  if (db.users.some((x) => x.id !== userId && x.professorId === pid)) return { ok: false, error: "Another staff member is already linked to that professor." };
+  const prof = professors.find((p) => p.id === pid)!;
+  return {
+    ok: true,
+    db: { ...db, professors, users: db.users.map((x) => (x.id === userId ? { ...x, professorId: pid } : x)) },
+    message: `${u.name} also teaches as ${prof.title} ${prof.name}.`,
+  };
 }

@@ -245,6 +245,151 @@ const PROF_BY_COURSE: Record<string, string> = {
 };
 for (const c of courses) c.professorId = PROF_BY_COURSE[c.name];
 
+// ───────────── Master's degrees (official information, 2026/2027 unless noted) ─────────────
+const SCHOOL_CONTACT = "School of Engineering, Azurém Campus, 4800-058 Guimarães, Portugal · Tel: +351 253510179 / 253510160 · cp@eng.uminho.pt · www.eng.uminho.pt";
+const DSI = "Department of Information Systems";
+
+const PROGRAMMES: Programme[] = [
+  {
+    id: P,
+    department: DSI,
+    name: "Information Systems Engineering and Management",
+    short: "MEGSI",
+    degree: "Master's degree",
+    ects: 120,
+    duration: "4 academic semesters",
+    regime: "Daytime",
+    academicYear: "2026/2027",
+    location: "Azurém Campus, Guimarães",
+    scientificArea: "Information Technologies and Systems",
+    contacts: [
+      { role: "Course Director", name: "Luís Gonzaga Mendes Magalhães", email: "lmagalhaes@dsi.uminho.pt", phone: "253510319" },
+      { role: "Academic Mobility Coordinator", name: "Ana Alice Rodrigues Pereira Baptista", email: "analice@dsi.uminho.pt", phone: "510310" },
+    ],
+    description:
+      "The MEGSI program aims to provide advanced training for IT engineers and managers whose main professional functions combine IT, organizational, and management skills.\nIt also aims for MEGSI graduates to be familiar with the R&D process to keep up with the evolution of the field's body of knowledge and participate in its exploration and development, particularly in a context of evidence-based practices.\nMEGSI graduates should also demonstrate: a sense of responsibility and professional ethics; the ability to learn and adapt to new situations; analytical, synthetic, and critical thinking skills; creativity; self-confidence; attention to the evolution of IT and the opportunities for its application; a reflective attitude; and a leadership posture.\nProfessional roles in IT engineers and managers can be performed in any organization, regardless of its size (including small and medium-sized enterprises) or sector, as well as in management consulting and IT firms.",
+    learningOutcomes: [
+      "Managing (curating) information",
+      "Exploring IT applications to galvanize informational objects",
+      "Developing IT applications",
+      "Deploying IT applications",
+      "Maintaining portfolios of IT applications",
+      "Designing information systems architectures",
+      "Establishing organizational capabilities centered on information and enhanced by IT",
+      "Supervising IT infrastructures",
+      "Controlling the fit between information systems architecture and reality",
+      "Studying the impacts of information technologies and systems on society",
+      "Managing information technology and systems units",
+      "Conduct R&D in IT",
+    ],
+    higherEducation: "This course provides the technical and scientific skills necessary for access to third-cycle (Doctoral) programs.",
+    careers: [
+      "Large companies where the IT function is formalized: the graduate will integrate this function, potentially leading it, with responsibilities compatible with their training, profile and professional experience.",
+      "Small companies where the IT function is not necessarily autonomous: a valuable asset given their preparation for the challenges of adopting and using IT.",
+      "Consulting firms, leading or integrating project teams.",
+      "Software development companies, potentially as entrepreneur, leading product and service innovation and managing software development projects.",
+    ],
+  },
+  {
+    id: "msi",
+    department: DSI,
+    name: "Information Systems",
+    short: "MSI",
+    degree: "Master's degree",
+    ects: 120,
+    duration: "4 academic semesters",
+    regime: "Mixed",
+    academicYear: "2025/2026",
+    location: "Azurém Campus, Guimarães",
+    scientificArea: "Information Technologies and Systems",
+    contacts: [
+      { role: "Course Director", name: "Teresa Susana Mendes Pereira Bernardino", email: "tpereira@dsi.uminho.pt", phone: "253510314" },
+      { role: "Academic Mobility Coordinator", name: "Isabel Maria Pinto Ramos", email: "iramos@dsi.uminho.pt", phone: "510317" },
+    ],
+    description:
+      "The Master's Degree in Information Systems aims to train professionals capable of: understanding the role of information and information technologies and systems (ITS) in organizations and society; explaining the technological, organizational, political, social, and cultural reasons for the successful adoption and management of ITS; diagnosing problems associated with the use of ITS; defining ITS solutions to solve organizational or societal problems and take advantage of opportunities arising from market and societal changes.\nMasters in Information Systems should be able to contribute to the definition of the technological infrastructure supporting the business strategy, participate in innovation and organizational change processes in which ITS plays a central role, and manage the organization's ITS to support the business model within its objectives and constraints.",
+    learningOutcomes: [
+      "Improving organizational work and processes",
+      "Exploring opportunities created by technological innovations",
+      "Understanding and meeting information requirements",
+      "Designing and managing organizational architecture",
+      "Identifying and evaluating alternative solutions and ways to obtain them",
+      "Ensuring information security and supporting infrastructure",
+      "Understanding, managing, and controlling IT-related risks",
+      "Collaboration, communication, negotiation, analytical and critical thinking, creativity and leadership (AIS recommendations)",
+    ],
+    higherEducation: "This course provides the technical and scientific skills necessary for access to a PhD program.",
+    careers: [
+      "Large companies with a formal Information Systems function (e.g. reporting to a CIO) — integrating and possibly leading it.",
+      "Consulting firms, leading or integrating project teams.",
+      "Small companies where the IS function is not autonomous — a particularly valuable asset.",
+      "Public organizations, from IT services support to management.",
+      "Software development companies, as entrepreneur, innovation lead or software project manager.",
+    ],
+  },
+  {
+    id: "mecd",
+    department: "Department of Production and Systems",
+    name: "Engineering and Data Science",
+    short: "MECD",
+    degree: "Master's degree",
+    ects: 120,
+    duration: "4 academic semesters",
+    regime: "Daytime",
+    academicYear: "2026/2027",
+    location: "Azurém Campus, Guimarães",
+    scientificArea: "Engineering and Data Science",
+    contacts: [{ role: "Course Director", name: "Lino António Antunes Fernandes Costa", email: "lac@dps.uminho.pt", phone: "604746" }],
+    description:
+      "The Master's degree in Engineering and Data Science (MECD) provides second-cycle training in the scientific field of Engineering and Data Science at the University of Minho, continuing the first-cycle training in the same area with the Bachelor's degree in Data Science (LCD), which began operating in 2022/23.\nThe MECD aims to train professionals and researchers capable of integrating into the business and industrial sector in an emerging and highly sought-after application area, as well as teaching and research units in a scientific area of current relevance and future prominence.",
+    learningOutcomes: [
+      "Understand advanced scientific knowledge associated with Engineering and Data Science (e.g. Data Engineering, Artificial Intelligence, Methodologies), as well as the legal issues of data collection, storage and processing",
+      "Process and visualize data using information technologies to extract useful knowledge and support decision-making",
+      "Design, develop, integrate and monitor data-driven computational products (e.g. Big Data Analytics and Artificial Intelligence systems)",
+      "Apply data science methodologies for descriptive, predictive and prescriptive analyses",
+      "Solve real-world problems involving advanced data processing and analysis (high volume and complexity)",
+    ],
+  },
+  {
+    id: "meti",
+    department: DSI,
+    name: "Telecommunications and Computer Engineering",
+    short: "METI",
+    degree: "Master's degree",
+    ects: 120,
+    duration: "4 academic semesters",
+    regime: "Daytime",
+    academicYear: "2026/2027",
+    location: "Azurém Campus, Guimarães",
+    scientificArea: "Telecommunications Engineering",
+    contacts: [
+      { role: "Course Director", name: "Maria João Mesquita Rodrigues Cunha Nicolau Pinto", email: "joao@dsi.uminho.pt", phone: "510317" },
+      { role: "Academic Mobility Coordinator", name: "Ana Alice Rodrigues Pereira Baptista", email: "analice@dsi.uminho.pt", phone: "510310" },
+    ],
+    description:
+      "The general objectives of the Master's course are to provide a second-cycle education in Engineering with a specialization in Telecommunications and Informatics, complementing a first-cycle education in the same area.\nThe aim is to train masters who deeply understand telecommunications systems at their different levels of conceptualization and implementation, and who can specify, design, develop, implement, operate and maintain them.\nIt is a specialized profile with strong R&D, communication and scientific dissemination skills in network management and virtualization, communications and digital systems, access and core networks, network services and multimedia applications, network emulation and simulation, traffic routing, vehicular networks, mobile computing, IoT, RF system implementation, machine learning, information retrieval, knowledge representation and reasoning.",
+    learningOutcomes: [
+      "Understand in depth the functioning of telecommunications systems",
+      "Specify, design, implement, operate and maintain telecommunications systems",
+      "Understand digital communications, modulation techniques, error control, OFDM systems and spread spectrum",
+      "Understand access and core network architectures, digital transmission systems and the principles of multiplexing and switching",
+      "Identify and apply the appropriate paradigm for managing distributed networks, services and applications",
+      "Understand network virtualization and software-defined networks",
+      "Apply information theory to digitizing, encoding and compressing multimedia data; choose technologies for processing, storing and distributing it",
+      "Understand the differences between emulation and simulation and their importance in testing and designing new protocols and technologies",
+    ],
+    higherEducation:
+      "Complemented by the doctoral program in Telecommunications (MAPTele), a joint program of the universities of Minho, Porto and Aveiro, and by other doctoral programs in related areas such as Informatics, Electronics and Computers, and Information Systems.",
+    careers: [
+      "Telecommunications operators — specification, design, operation and maintenance of systems, infrastructures and services",
+      "Service providers — services for telecommunications and computer networks",
+      "Content providers — content and applications to support access to and provision of content",
+      "IT companies — computer networks and network services",
+      "R&D companies — research and development of new communication systems",
+    ],
+  },
+];
+
 export function createSeed(now = new Date()): DB {
   const t = now.getTime();
   const at = (offsetDays: number) => new Date(t + offsetDays * DAY).toISOString();
@@ -345,16 +490,7 @@ export function createSeed(now = new Date()): DB {
     { id: "a2", programmeId: P, title: "Room change for Corporate Strategy", body: "From next week, classes move to room 1.12.", audience: 1, createdAt: at(-3), authorId: "u_assistant" },
   ];
 
-  const megsi: Programme = {
-    id: P,
-    department: "Department of Information Systems",
-    name: "Engineering and Management of Information Systems",
-    short: "MEGSI",
-    degree: "Master's degree",
-    ects: 120,
-    duration: "4 curricular semesters",
-    regime: "Daytime",
-  };
+  const megsi: Programme = { ...PROGRAMMES[0], createdAt: at(-500) };
   const tickets: SupportTicket[] = [
     {
       id: "t1", userId: "u_50003", name: "Bruno Adeyemi", email: "pg50003@option.demo", role: "student", programmeId: P, topic: "selection",
@@ -372,9 +508,10 @@ export function createSeed(now = new Date()): DB {
   ];
 
   return {
-    version: 5,
+    version: 6,
     school: "School of Engineering",
-    programmes: [megsi],
+    programmes: [megsi, ...PROGRAMMES.slice(1).map((p) => ({ ...p, createdAt: at(-30) }))],
+    schoolContact: SCHOOL_CONTACT,
     programme: megsi,
     users,
     groups,
