@@ -61,7 +61,7 @@ export default function Home() {
               Pick your optionals.
               <br />
               <span className="relative">
-                Skip the emails.
+                Design your degree.
                 <span className="absolute -bottom-1 left-0 -z-10 h-4 w-full -rotate-1 bg-brand/20" />
               </span>
             </h1>
