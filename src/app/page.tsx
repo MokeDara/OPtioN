@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, BellRing, Building2, Gauge, GraduationCap, KeyRound, ShieldCheck } from "lucide-react";
+import { ArrowRight, BellRing, Gauge, LogIn, ShieldCheck, UserPlus } from "lucide-react";
 import { Countdown, Logo, RoundPill, homeFor } from "@/components/ui";
 import { CoverFlow, type FlowItem } from "@/components/cover-flow";
 import { CourseDetail } from "@/components/course-detail";
@@ -41,11 +41,11 @@ export default function Home() {
               </Link>
             ) : (
               <>
-                <Link href="/login" className="btn-ghost hidden border-transparent bg-white/60 sm:inline-flex">
-                  <GraduationCap className="size-4" /> Students
+                <Link href="/signup" className="btn-ghost hidden border-transparent bg-white/60 sm:inline-flex">
+                  Create account
                 </Link>
-                <Link href="/staff" className="btn-primary">
-                  <KeyRound className="size-4" /> Course director
+                <Link href="/login" className="btn-primary">
+                  Sign in <ArrowRight className="size-4" />
                 </Link>
               </>
             )}
@@ -69,27 +69,21 @@ export default function Home() {
               For the programmes of the {db.school}, starting with {db.programme.short}. When your selection window opens, every option is listed with its live seat count. Grab a seat, or
               request one from the course director — and get the answer here.
             </p>
-            <div className="mt-8 grid max-w-xl gap-3 sm:grid-cols-2">
-              <Link href={user?.role === "student" ? "/student" : "/login"} className="group card flex items-center gap-3 border-brand/20 p-4 transition hover:-translate-y-0.5 hover:shadow-lg">
-                <span className="grid size-11 place-items-center rounded-xl bg-brand text-white shadow-lg shadow-brand/25">
-                  <GraduationCap className="size-5" />
-                </span>
-                <span className="flex-1">
-                  <span className="block font-semibold">I&apos;m a student</span>
-                  <span className="block text-xs text-ink/55">Choose options · new? sign up</span>
-                </span>
-                <ArrowRight className="size-4 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-brand" />
-              </Link>
-              <Link href={user && user.role !== "student" ? homeFor(user.role) : "/staff"} className="group card flex items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:shadow-lg">
-                <span className="grid size-11 place-items-center rounded-xl bg-ink text-white">
-                  <KeyRound className="size-5" />
-                </span>
-                <span className="flex-1">
-                  <span className="block font-semibold">Course director</span>
-                  <span className="block text-xs text-ink/55">Directors & assistants</span>
-                </span>
-                <ArrowRight className="size-4 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-ink" />
-              </Link>
+            <div className="mt-8 flex flex-wrap gap-3">
+              {user ? (
+                <Link href={homeFor(user.role)} className="btn-brand px-6 py-3 text-base shadow-lg shadow-brand/25">
+                  {user.role === "student" ? "Choose my options" : "Open dashboard"} <ArrowRight className="size-4" />
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className="btn-brand px-6 py-3 text-base shadow-lg shadow-brand/25">
+                    <LogIn className="size-4" /> Sign in with my student number
+                  </Link>
+                  <Link href="/signup" className="btn-ghost px-6 py-3 text-base">
+                    <UserPlus className="size-4" /> First time? Create account
+                  </Link>
+                </>
+              )}
             </div>
 
             <div className="mt-8 flex flex-wrap gap-2">
@@ -142,9 +136,7 @@ export default function Home() {
 
       <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-8 text-xs text-ink/40">
         <span>© {new Date().getFullYear()} OPtioN!</span>
-        <Link href="/portal" className="inline-flex items-center gap-1.5 hover:text-ink">
-          <Building2 className="size-3.5" /> School of Engineering portal
-        </Link>
+        <span>{db.school}</span>
       </footer>
       {detail && <CourseDetail course={detail} group={db.groups.find((g) => g.id === detail.groupId)} onClose={() => setOpenCourse(null)} />}
     </main>

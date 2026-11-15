@@ -18,6 +18,7 @@ export function SignInForm({
   demo,
   footer,
   onSignedIn,
+  showHome = true,
 }: {
   roles: Role[];
   badge: string;
@@ -28,6 +29,8 @@ export function SignInForm({
   demo: { label: string; username: string; icon?: React.ReactNode }[];
   footer?: React.ReactNode;
   onSignedIn?: () => void;
+  /** Staff and portal sign-in pages stand alone: no link back to the student site. */
+  showHome?: boolean;
 }) {
   const { login } = useStore();
   const router = useRouter();
@@ -45,9 +48,13 @@ export function SignInForm({
   return (
     <main className="grid min-h-screen place-items-center bg-[radial-gradient(1000px_600px_at_85%_-10%,#f7d4d9_0%,transparent_60%),radial-gradient(800px_500px_at_-10%_110%,#fbe3cf_0%,transparent_60%)] px-5 py-10">
       <div className="w-full max-w-md">
-        <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
-          <ArrowLeft className="size-4" /> Home
-        </Link>
+        {showHome ? (
+          <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
+            <ArrowLeft className="size-4" /> Home
+          </Link>
+        ) : (
+          <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.2em] text-ink/40">{badge} access</p>
+        )}
         <div className="card p-8">
           <div className="flex items-center justify-between">
             <Logo className="text-3xl" />

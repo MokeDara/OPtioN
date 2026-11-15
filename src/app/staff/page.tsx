@@ -16,6 +16,7 @@ export default function StaffLoginPage() {
         { label: "Director", username: "director", icon: <KeyRound className="size-4" /> },
         { label: "Assistant", username: "assistant", icon: <UserCog className="size-4" /> },
       ]}
+      showHome={false}
       footer={<>No account? Use the help button to ask the School of Engineering for access.</>}
     />
   );

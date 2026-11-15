@@ -41,6 +41,7 @@ export default function PortalPage() {
           { label: "Technical", username: "tech", icon: <KeyRound className="size-4" /> },
         ]}
         onSignedIn={() => undefined}
+        showHome={false}
       />
     );
 
