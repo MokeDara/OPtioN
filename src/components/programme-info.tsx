@@ -1,6 +1,6 @@
 "use client";
 import { Briefcase, Building2, ChevronDown, GraduationCap, Mail, MapPin, Phone, Target } from "lucide-react";
-import type { Programme } from "@/lib/types";
+import type { Programme, User } from "@/lib/types";
 
 function Section({ icon: Icon, title, children, open = false }: { icon: typeof Target; title: string; children: React.ReactNode; open?: boolean }) {
   return (
@@ -16,7 +16,12 @@ function Section({ icon: Icon, title, children, open = false }: { icon: typeof T
 }
 
 /** The official page of a Master's degree, as students see it on their profile. */
-export function ProgrammeInfo({ p, schoolContact }: { p: Programme; schoolContact?: string }) {
+/** director: the live course-director account — replaces the typed "Course Director" contact so a change of director shows at once. */
+export function ProgrammeInfo({ p, schoolContact, director }: { p: Programme; schoolContact?: string; director?: User }) {
+  const contacts = [
+    ...(director ? [{ role: "Course Director", name: director.name, email: director.email, phone: undefined as string | undefined }] : []),
+    ...(p.contacts ?? []).filter((c) => !(director && c.role === "Course Director")),
+  ];
   const facts: [string, string | number | undefined][] = [
     ["Academic degree", p.degree],
     ["ECTS", p.ects],
@@ -48,9 +53,9 @@ export function ProgrammeInfo({ p, schoolContact }: { p: Programme; schoolContac
           ))}
       </div>
 
-      {!!p.contacts?.length && (
+      {!!contacts.length && (
         <div className="grid gap-3 border-t border-line p-6 sm:grid-cols-2">
-          {p.contacts.map((c) => (
+          {contacts.map((c) => (
             <div key={c.role + c.name} className="rounded-xl bg-paper p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-brand">{c.role}</p>
               <p className="mt-0.5 font-semibold">{c.name}</p>

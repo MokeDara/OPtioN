@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-ink: #121417;
   --color-paper: #f7f5f2;
@@ -46,3 +48,42 @@ body {
 @utility label {
   @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink/50;
 }
+
+/* ───────── Night mode: swap the tokens, darken white surfaces and the pastel page washes ───────── */
+.dark {
+  --color-ink: #ecebe7;
+  --color-paper: #111316;
+  --color-line: #2b2f35;
+  --color-band: #22262c;
+  --color-brand-soft: #3b1b21;
+  --surface: #1a1d22;
+  color-scheme: dark;
+}
+.dark .card,
+.dark .input,
+.dark .btn-ghost,
+.dark .bg-white {
+  background-color: var(--surface);
+}
+.dark .bg-white\/60,
+.dark .bg-white\/70,
+.dark .bg-white\/80 {
+  background-color: color-mix(in srgb, var(--surface) 85%, transparent);
+}
+.dark .btn-primary {
+  color: #111316;
+}
+.dark .btn-primary:hover {
+  background-color: #ffffff;
+}
+.dark [class*="bg-[radial-gradient"] {
+  background-image: radial-gradient(900px 600px at 85% 10%, rgba(166, 25, 46, 0.22) 0%, transparent 60%);
+  background-color: var(--color-paper);
+}
+.dark .bg-rose-50 { background-color: #3b1b21; }
+.dark .text-rose-700 { color: #fda4af; }
+.dark .bg-emerald-50 { background-color: #10291f; }
+.dark .bg-amber-50 { background-color: #2e2410; }
+/* keep white elements white on the red header, and dark text on light (ink) chips */
+.dark header .bg-white { background-color: #ffffff; }
+.dark .bg-ink { color: #111316; }

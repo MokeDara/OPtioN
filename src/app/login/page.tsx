@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { GraduationCap } from "lucide-react";
 import { SignInForm } from "@/components/sign-in";
+import { useT } from "@/lib/prefs";
 
 /** Student link. */
 export default function StudentLoginPage() {
   return (
     <SignInForm
       roles={["student"]}
-      badge="Students"
+      badge="Student"
       title="Student sign in"
       subtitle="Choose your options, follow your requests and see the calendar."
       idLabel="Student number"
@@ -19,12 +20,21 @@ export default function StudentLoginPage() {
       ]}
       footer={
         <>
-          First time here?{" "}
-          <Link href="/signup" className="font-semibold text-brand hover:underline">
-            Create your student account
-          </Link>
+          <FirstTime />
         </>
       }
     />
+  );
+}
+
+function FirstTime() {
+  const t = useT();
+  return (
+    <>
+      {t("First time here?")}{" "}
+      <Link href="/signup" className="font-semibold text-brand hover:underline">
+        {t("Create your student account")}
+      </Link>
+    </>
   );
 }

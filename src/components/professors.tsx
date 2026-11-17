@@ -6,7 +6,7 @@ import { CourseImage } from "@/components/course-detail";
 import { Avatar, ImageInput } from "@/components/profile";
 import { download, slug } from "@/components/staff";
 import { useStore } from "@/lib/store";
-import { courseListCsv, deleteProfessor, lastListSent, saveProfessor, seatsTaken, sendCourseList, uid } from "@/lib/logic";
+import { courseListCsv, deleteProfessor, lastListSent, professorsTeaching, saveProfessor, seatsTaken, sendCourseList, uid } from "@/lib/logic";
 import type { Professor } from "@/lib/types";
 
 /** The department's professors. The portal can edit; course directors can view and send lists. */
@@ -16,7 +16,7 @@ function useStaffRole(professorId: string) {
   const u = school.users.find((x) => x.professorId === professorId && x.active !== false);
   if (!u) return null;
   const prog = school.programmes.find((p) => p.id === u.programmeId)?.short;
-  return `${u.role === "director" ? "Course director" : "Assistant"}${prog ? ` · ${prog}` : ""}`;
+  return `${u.role === "director" ? "Course director" : u.role === "professor" ? "Professor" : "Assistant"}${prog ? ` · ${prog}` : ""}`;
 }
 
 function StaffBadge({ professorId }: { professorId: string }) {
@@ -24,12 +24,14 @@ function StaffBadge({ professorId }: { professorId: string }) {
   return label ? <span className="mt-1 inline-block rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">{label}</span> : null;
 }
 
-export function Professors({ canEdit }: { canEdit: boolean }) {
+/** canEdit: DSI portal (whole department). onlyProgramme: a director's faculty roster — professors teaching in their Master's. */
+export function Professors({ canEdit, onlyProgramme = false }: { canEdit: boolean; onlyProgramme?: boolean }) {
   const { db } = useStore();
+  const pool = onlyProgramme ? professorsTeaching(db) : db.professors;
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<Professor | null>(null);
-  const list = db.professors
+  const list = pool
     .filter((p) => (p.name + p.email + (p.area ?? "")).toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
   const viewing = db.professors.find((p) => p.id === open);
@@ -41,7 +43,9 @@ export function Professors({ canEdit }: { canEdit: boolean }) {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink/40" />
           <input className="input w-64 pl-9" placeholder="Name, email or area" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <span className="text-sm text-ink/50">{db.professors.length} professors in the department</span>
+        <span className="text-sm text-ink/50">
+          {pool.length} {onlyProgramme ? `professors teaching in ${db.programme.short}` : "professors in the department"}
+        </span>
         {canEdit && (
           <button className="btn-primary ml-auto" onClick={() => setEditing({ id: uid("p"), name: "", title: "Prof.", email: "" })}>
             <Plus className="size-4" /> Add professor

@@ -2,18 +2,23 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, BellRing, Gauge, LogIn, ShieldCheck, UserPlus } from "lucide-react";
-import { Countdown, Logo, RoundPill, homeFor } from "@/components/ui";
+import { Countdown, DEPARTMENT_LINE, Logo, RoundPill, homeForUser } from "@/components/ui";
 import { CoverFlow, type FlowItem } from "@/components/cover-flow";
 import { CourseDetail } from "@/components/course-detail";
+import { SiteFooter } from "@/components/site-footer";
 import { useStore } from "@/lib/store";
+import { PrefsToggle, useT } from "@/lib/prefs";
 import { roundState } from "@/lib/logic";
 
 export default function Home() {
-  const { db, now, user } = useStore();
+  const { db, now, user, school } = useStore();
+  const t = useT();
+  // One line per year: the signed-in student's programme, otherwise the first one (MEGSI).
+  const rounds = db.rounds.filter((r) => r.programmeId === db.programme.id).sort((a, b) => a.year - b.year);
   const [openCourse, setOpenCourse] = useState<string | null>(null);
 
   // Carousel: options of the open round first, then the other options — course names only.
-  const openYears = db.rounds.filter((r) => roundState(r, now) === "open").map((r) => r.year);
+  const openYears = rounds.filter((r) => roundState(r, now) === "open").map((r) => r.year);
   const options = db.courses
     .filter((c) => c.groupId && c.image)
     .sort((a, b) => Number(openYears.includes(b.year)) - Number(openYears.includes(a.year)));
@@ -35,17 +40,18 @@ export default function Home() {
         <nav className="relative mx-auto flex h-20 max-w-6xl items-center justify-between px-5">
           <Logo />
           <div className="flex items-center gap-2">
+            <PrefsToggle />
             {user ? (
-              <Link href={homeFor(user.role)} className="btn-primary">
-                Open dashboard <ArrowRight className="size-4" />
+              <Link href={homeForUser(user)} className="btn-primary">
+                {t("Open dashboard")} <ArrowRight className="size-4" />
               </Link>
             ) : (
               <>
                 <Link href="/signup" className="btn-ghost hidden border-transparent bg-white/60 sm:inline-flex">
-                  Create account
+                  {t("Create account")}
                 </Link>
                 <Link href="/login" className="btn-primary">
-                  Sign in <ArrowRight className="size-4" />
+                  {t("Sign in")} <ArrowRight className="size-4" />
                 </Link>
               </>
             )}
@@ -55,60 +61,61 @@ export default function Home() {
         <section className="relative mx-auto grid max-w-6xl items-center gap-6 px-5 pb-14 pt-6 lg:grid-cols-[1fr_1.15fr] lg:pt-12">
           <div>
             <p className="mb-5 inline-block rounded-full border border-brand/20 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand backdrop-blur">
-              {db.school} · Option selection
+              {t(DEPARTMENT_LINE)}
             </p>
             <h1 className="font-display text-5xl font-bold leading-[1.02] tracking-tight sm:text-6xl xl:text-7xl">
-              Pick your optionals.
+              {t("Pick your optionals.")}
               <br />
               <span className="relative">
-                Design your degree.
+                {t("Design your degree.")}
                 <span className="absolute -bottom-1 left-0 -z-10 h-4 w-full -rotate-1 bg-brand/20" />
               </span>
             </h1>
             <p className="mt-6 max-w-xl text-lg text-ink/70">
-              For the programmes of the {db.school}, starting with {db.programme.short}. When your selection window opens, every option is listed with its live seat count. Grab a seat, or
-              request one from the course director — and get the answer here.
+              {t("For the Master's of the Department of Information Systems")}
+              <br />— {school.programmes.map((p) => p.short).join(", ")}.
+              <br />
+              {t("When your selection window opens, every option is listed with its live seat count. Grab a seat, or request one from the course director and get the answer here.")}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               {user ? (
-                <Link href={homeFor(user.role)} className="btn-brand px-6 py-3 text-base shadow-lg shadow-brand/25">
-                  {user.role === "student" ? "Choose my options" : "Open dashboard"} <ArrowRight className="size-4" />
+                <Link href={homeForUser(user)} className="btn-brand px-6 py-3 text-base shadow-lg shadow-brand/25">
+                  {t(user.role === "student" ? "Choose my options" : "Open dashboard")} <ArrowRight className="size-4" />
                 </Link>
               ) : (
                 <>
                   <Link href="/login" className="btn-brand px-6 py-3 text-base shadow-lg shadow-brand/25">
-                    <LogIn className="size-4" /> Sign in with my student number
+                    <LogIn className="size-4" /> {t("Sign in with my student number")}
                   </Link>
                   <Link href="/signup" className="btn-ghost px-6 py-3 text-base">
-                    <UserPlus className="size-4" /> First time? Create account
+                    <UserPlus className="size-4" /> {t("First time? Create account")}
                   </Link>
                 </>
               )}
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-2">
-              {db.rounds
-                .slice()
-                .sort((a, b) => a.year - b.year)
-                .map((r) => {
-                  const st = roundState(r, now);
-                  return (
-                    <div key={r.id} className="flex items-center gap-2 rounded-full border border-white/60 bg-white/70 py-1.5 pl-3 pr-1.5 text-sm backdrop-blur">
-                      <span className="font-semibold">Year {r.year} options</span>
+            <div className="mt-10 flex flex-col gap-2 sm:max-w-md">
+              {rounds.map((r) => {
+                const st = roundState(r, now);
+                return (
+                  <div key={r.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/70 px-4 py-3 backdrop-blur">
+                    <span className="text-sm">
+                      <span className="font-semibold">{t(`Year ${r.year} options`)}</span>
                       {st === "open" && (
                         <span className="text-ink/60">
-                          · closes in <Countdown to={r.closesAt} />
+                          {" "}· {t("closes in")} <Countdown to={r.closesAt} />
                         </span>
                       )}
                       {st === "upcoming" && (
                         <span className="text-ink/60">
-                          · opens in <Countdown to={r.opensAt} />
+                          {" "}· {t("opens in")} <Countdown to={r.opensAt} />
                         </span>
                       )}
-                      <RoundPill round={r} />
-                    </div>
-                  );
-                })}
+                    </span>
+                    <RoundPill round={r} />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -119,25 +126,22 @@ export default function Home() {
       <section className="border-t border-line bg-white">
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 md:grid-cols-3">
           {[
-            { icon: BellRing, t: "One email, one link", d: "Everyone in your year is notified the moment the window opens. Every later update lands in your OPtioN! inbox." },
-            { icon: Gauge, t: "Live seats", d: "First come, first served. You see exactly how many students are admitted and how many seats are left." },
-            { icon: ShieldCheck, t: "Director approval, tracked", d: "Dissertation, Project Work and some options need the course director's acceptance. Your request and the answer live in one place." },
-          ].map(({ icon: Icon, t, d }) => (
-            <div key={t}>
+            { icon: BellRing, title: "One email, one link", d: "Everyone in your year is notified the moment the window opens. Every later update lands in your OPtioN! inbox." },
+            { icon: Gauge, title: "Live seats", d: "First come, first served. You see exactly how many students are admitted and how many seats are left." },
+            { icon: ShieldCheck, title: "Director approval, tracked", d: "Dissertation, Project Work and some options need the course director's acceptance. Your request and the answer live in one place." },
+          ].map(({ icon: Icon, title, d }) => (
+            <div key={title}>
               <span className="grid size-11 place-items-center rounded-xl bg-brand/10 text-brand">
                 <Icon className="size-5" />
               </span>
-              <h3 className="mt-4 font-display text-lg font-bold">{t}</h3>
-              <p className="mt-1 text-sm text-ink/65">{d}</p>
+              <h3 className="mt-4 font-display text-lg font-bold">{t(title)}</h3>
+              <p className="mt-1 text-sm text-ink/65">{t(d)}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-8 text-xs text-ink/40">
-        <span>© {new Date().getFullYear()} OPtioN!</span>
-        <span>{db.school}</span>
-      </footer>
+      <SiteFooter />
       {detail && <CourseDetail course={detail} group={db.groups.find((g) => g.id === detail.groupId)} onClose={() => setOpenCourse(null)} />}
     </main>
   );

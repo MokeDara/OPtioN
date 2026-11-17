@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/ui";
 import { ProfileFields } from "@/components/profile";
 import { useStore } from "@/lib/store";
+import { PrefsToggle } from "@/lib/prefs";
 import type { User } from "@/lib/types";
 
 const empty = (): User => ({ id: "", username: "", password: "", name: "", email: "", role: "student" });
@@ -28,7 +29,8 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(1200px_600px_at_80%_-10%,#f7d4d9_0%,transparent_60%),radial-gradient(900px_500px_at_-10%_110%,#fbe3cf_0%,transparent_60%)] px-5 py-10">
+    <main className="relative min-h-screen bg-[radial-gradient(1200px_600px_at_80%_-10%,#f7d4d9_0%,transparent_60%),radial-gradient(900px_500px_at_-10%_110%,#fbe3cf_0%,transparent_60%)] px-5 py-10">
+      <PrefsToggle className="absolute right-4 top-4" />
       <div className="mx-auto max-w-2xl">
         <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
           <ArrowLeft className="size-4" /> Back

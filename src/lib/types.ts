@@ -1,9 +1,10 @@
 export type Year = 1 | 2;
 export type Semester = "S1" | "S2" | "A"; // A = annual
 
-/** admin = School of Engineering team (portal); director/assistant = programme staff; student. */
-export type Role = "student" | "director" | "assistant" | "admin";
-export const STAFF_ROLES: Role[] = ["director", "assistant"];
+/** admin = DSI team (portal); director/assistant = programme staff; student. */
+export type Role = "student" | "director" | "assistant" | "professor" | "admin";
+/** Programme staff. Professors come in through an access request and see their courses and the calendar. */
+export const STAFF_ROLES: Role[] = ["director", "assistant", "professor"];
 
 export interface User {
   id: string;
@@ -14,7 +15,7 @@ export interface User {
   role: Role;
   photo?: string; // URL or resized data URL
   // Profile
-  programmeId?: string; // students and programme staff; unset for the School team
+  programmeId?: string; // students and programme staff; unset for the DSI team
   year?: Year; // students: current year of the master's
   title?: string; // directors: e.g. "Associate Professor"
   bio?: string; // one-liner
@@ -70,7 +71,7 @@ export interface Announcement {
   authorId: string;
 }
 
-/** A programme (e.g. MEGSI) run by a department of the School of Engineering. */
+/** A programme (e.g. MEGSI) run by a department of the Department of Information Systems. */
 export interface Programme {
   id: string;
   department: string; // e.g. "Department of Information Systems"
@@ -179,7 +180,7 @@ export interface Email {
 export type TicketStatus = "open" | "in_progress" | "resolved";
 export type TicketTopic = "access" | "selection" | "technical" | "courses" | "other";
 
-/** A message sent with the floating support button to the School of Engineering team. */
+/** A message sent with the floating support button to the DSI team. */
 export interface SupportTicket {
   id: string;
   userId?: string; // set when signed in
@@ -196,10 +197,25 @@ export interface SupportTicket {
   messages: { from: "user" | "team"; authorName: string; body: string; at: string }[];
 }
 
+export type AccessRequestStatus = "pending" | "approved" | "declined";
+
+/** A professor asking for access from the staff sign-in page. The portal approves it and the login is emailed. */
+export interface AccessRequest {
+  id: string;
+  name: string;
+  email: string; // institutional (…uminho.pt)
+  programmeId: string; // the Master's they teach in
+  courseIds: string[]; // curricular units they teach (optional)
+  status: AccessRequestStatus;
+  createdAt: string;
+  decidedAt?: string;
+  userId?: string; // the account created on approval
+}
+
 export interface DB {
   version: number; // bump when the demo data shape changes
-  school: string; // "School of Engineering"
-  schoolContact?: string; // address, phone, email of the School
+  school: string; // "Department of Information Systems"
+  schoolContact?: string; // address, phone, email of the department
   programmes: Programme[];
   /** The programme this view is about (set by scope()); for unscoped data, the first programme. */
   programme: Programme;
@@ -213,6 +229,7 @@ export interface DB {
   events: CalendarEvent[];
   announcements: Announcement[];
   tickets: SupportTicket[];
+  accessRequests?: AccessRequest[];
 }
 
 export type RoundState = "upcoming" | "open" | "closed";

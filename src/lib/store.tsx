@@ -8,16 +8,16 @@ import { createSeed } from "./seed";
 import type { Course, DB, Role, Round, User } from "./types";
 
 
-const DB_KEY = "option-demo-db-v6";
-const DB_VERSION = 6;
+const DB_KEY = "option-demo-db-v9";
+const DB_VERSION = 9;
 const SESSION_KEY = "option-session";
 
 type Toast = { id: number; kind: "ok" | "error"; text: string };
 
 interface Store {
-  /** The data the signed-in person works with: their programme only (the School team picks one). */
+  /** The data the signed-in person works with: their programme only (the DSI team picks one). */
   db: DB;
-  /** Everything, across programmes — for the School of Engineering portal. */
+  /** Everything, across programmes — for the DSI portal. */
   school: DB;
   viewProgramme: string;
   setViewProgramme: (id: string) => void;

@@ -19,7 +19,7 @@ const audienceLabel = (a: 0 | Year) => (a === 0 ? "Everyone" : `Year ${a}`);
 const covers = (e: CalendarEvent, day: string) => e.date === day || (!!e.endDate && e.date <= day && day <= e.endDate);
 
 export default function CalendarPage() {
-  const user = useRequireRole(["student", "director", "assistant"]);
+  const user = useRequireRole(["student", "director", "assistant", "professor"]);
   const { db, now } = useStore();
   const staff = user?.role === "director" || user?.role === "assistant";
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));

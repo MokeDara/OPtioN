@@ -1,24 +1,27 @@
 "use client";
 import { useState } from "react";
-import { BookOpen, Building2, Copy, Info, KeyRound, LifeBuoy, Mail, Pencil, Plus, RotateCcw, Send, UserCheck, UserPlus, UserX, X } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, BookOpen, Building2, Copy, FileSpreadsheet, Info, KeyRound, LifeBuoy, Mail, Pencil, Plus, RotateCcw, Search, Send, UserCheck, UserPlus, UserX, X } from "lucide-react";
 import { AppHeader, Empty, fmtDate } from "@/components/ui";
 import { SignInForm } from "@/components/sign-in";
 import { Avatar } from "@/components/profile";
-import { Courses } from "@/components/staff";
+import { Courses, ProfileModal, download } from "@/components/staff";
+import { Requests, Rounds } from "@/components/programme-admin";
 import { Professors } from "@/components/professors";
 import { STATUS, StatusChip, TOPICS, Thread } from "@/components/support";
 import { ProgrammeInfo } from "@/components/programme-info";
 import { useStore } from "@/lib/store";
-import { assignStaff, createProgramme, createStaff, directorOf, linkStaffProfessor, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
-import { STAFF_ROLES, type Programme, type ProgrammeContact, type TicketStatus, type Year } from "@/lib/types";
+import { approveAccess, declineAccess } from "@/lib/logic";
+import { activeSelections, assignStaff, scope, createProgramme, generalListCsv, setStaffRole, createStaff, directorOf, linkStaffProfessor, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
+import { STAFF_ROLES, type Programme, type ProgrammeContact, type TicketStatus, type User, type Year } from "@/lib/types";
 
-type Tab = "programmes" | "access" | "courses" | "professors" | "support" | "mail";
+type Tab = "programmes" | "access" | "students" | "courses" | "rounds" | "professors" | "support" | "mail";
 type Creds = { name: string; email: string; username: string; password: string; link: string };
-type StaffRole = "director" | "assistant" | "admin";
+type StaffRole = "director" | "assistant" | "professor" | "admin";
 const ROLE: Record<string, { label: string; cls: string }> = {
   director: { label: "Course director", cls: "bg-brand/10 text-brand" },
   assistant: { label: "Assistant", cls: "bg-sky-100 text-sky-800" },
-  admin: { label: "School team", cls: "bg-ink text-white" },
+  professor: { label: "Professor", cls: "bg-emerald-100 text-emerald-800" },
+  admin: { label: "DSI team", cls: "bg-ink text-white" },
 };
 
 export default function PortalPage() {
@@ -31,9 +34,9 @@ export default function PortalPage() {
     return (
       <SignInForm
         roles={["admin"]}
-        badge="School"
-        title="School of Engineering portal"
-        subtitle="For the School's management and technical team: programmes, staff access, courses, professors and support requests."
+        badge="DSI"
+        title="DSI portal"
+        subtitle="For the DSI management and technical team: programmes, staff access, courses, professors and support requests."
         idLabel="Username"
         idPlaceholder="admin"
         demo={[
@@ -46,10 +49,13 @@ export default function PortalPage() {
     );
 
   const openTickets = school.tickets.filter((t) => t.status !== "resolved").length;
+  const pendingAccess = (school.accessRequests ?? []).filter((r) => r.status === "pending").length;
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: "programmes", label: "Master's degrees" },
-    { id: "access", label: "Staff access" },
+    { id: "access", label: "Staff access", badge: pendingAccess },
+    { id: "students", label: "All students" },
     { id: "courses", label: "Courses" },
+    { id: "rounds", label: "Rounds & requests", badge: school.selections.filter((x) => x.status === "pending").length },
     { id: "professors", label: "Professors" },
     { id: "support", label: "Support", badge: openTickets },
     { id: "mail", label: "Sent mail" },
@@ -100,7 +106,9 @@ export default function PortalPage() {
         <div className="mt-6">
           {tab === "programmes" && <Programmes onInvite={setInvite} onCourses={() => setTab("courses")} />}
           {tab === "access" && <StaffAccess onInvite={setInvite} onCreds={setCreds} />}
+          {tab === "students" && <AllStudents />}
           {tab === "courses" && <CoursesTab />}
+          {tab === "rounds" && <RoundsAndRequests />}
           {tab === "professors" && <Professors canEdit />}
           {tab === "support" && <Support />}
           {tab === "mail" && <SentMail />}
@@ -132,9 +140,7 @@ function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; 
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-ink/60">
-          Only the School&apos;s team can add a Master&apos;s degree. Each one has its own courses and professors, one course director and any number of assistants, who manage option selection from there.
-        </p>
+        <span />
         <button className="btn-primary" onClick={() => setEditing("new")}>
           <Plus className="size-4" /> New Master&apos;s degree
         </button>
@@ -232,7 +238,7 @@ function Programmes({ onInvite, onCourses }: { onInvite: (i: { role: StaffRole; 
             <button onClick={() => setInfo(null)} className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-1.5 hover:bg-white" aria-label="Close">
               <X className="size-5" />
             </button>
-            <ProgrammeInfo p={info} schoolContact={school.schoolContact} />
+            <ProgrammeInfo p={info} schoolContact={school.schoolContact} director={directorOf(school, info.id)} />
           </div>
         </div>
       )}
@@ -378,11 +384,10 @@ function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole })
 
   return (
     <div>
+      <AccessRequests onCreds={onCreds} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-ink/60">
-          Directors and assistants manage one programme and sign in at <b className="text-ink">{origin}/staff</b>. School team members (management and technical staff) use this portal.
-        </p>
-        <button className="btn-primary" onClick={() => onInvite({ role: "director" })}>
+        <span />
+        <button className="btn-primary" onClick={() => onInvite({ role: "professor" })}>
           <Plus className="size-4" /> Give access
         </button>
       </div>
@@ -449,6 +454,19 @@ function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole })
                 >
                   <KeyRound className="size-3.5" /> Reset & resend
                 </button>
+                {u.role === "professor" && (
+                  <button
+                    className="btn-ghost py-1.5 text-xs text-brand"
+                    onClick={() => confirm(`Make ${u.name} course director of ${school.programmes.find((p) => p.id === u.programmeId)?.short ?? "their Master's"}?`) && act((d, n) => setStaffRole(d, u.id, "director", n))}
+                  >
+                    <ArrowUpCircle className="size-3.5" /> Promote to director
+                  </button>
+                )}
+                {u.role === "director" && (
+                  <button className="btn-ghost py-1.5 text-xs" onClick={() => confirm(`Move ${u.name} back to professor?`) && act((d, n) => setStaffRole(d, u.id, "professor", n))}>
+                    <ArrowDownCircle className="size-3.5" /> Back to professor
+                  </button>
+                )}
                 <button className="btn-ghost py-1.5 text-xs" onClick={() => act((d) => setUserActive(d, u.id, u.active === false))}>
                   {u.active === false ? (
                     <>
@@ -466,6 +484,71 @@ function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole })
         ))}
       </div>
     </div>
+  );
+}
+
+function AccessRequests({ onCreds }: { onCreds: (c: Creds) => void }) {
+  const { school, act } = useStore();
+  const all = school.accessRequests ?? [];
+  const pending = all.filter((r) => r.status === "pending");
+  const handled = all.filter((r) => r.status !== "pending").slice(0, 5);
+  if (!all.length) return null;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  return (
+    <section className="mb-8">
+      <h2 className="font-display text-lg font-bold">
+        Access requests {pending.length > 0 && <span className="ml-1 rounded-full bg-amber-400 px-2 py-0.5 text-xs text-ink">{pending.length} waiting</span>}
+      </h2>
+      <div className="mb-3" />
+      {pending.length === 0 && <p className="card p-4 text-sm text-ink/55">No requests waiting.</p>}
+      <div className="space-y-3">
+        {pending.map((r) => {
+          const p = school.programmes.find((x) => x.id === r.programmeId);
+          const units = [...new Set(r.courseIds.map((id) => school.courses.find((c) => c.id === id)?.name).filter(Boolean))];
+          return (
+            <div key={r.id} className="card flex flex-wrap items-start gap-4 border-amber-300 p-4">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">
+                  {r.name} <span className="ml-1 rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/70">{p?.short ?? "?"}</span> <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Professor</span>
+                </p>
+                <p className="text-sm text-ink/55">
+                  {r.email} · asked {fmtDate(r.createdAt)}
+                </p>
+                {units.length > 0 && <p className="mt-1 text-sm text-ink/70">Teaches: {units.join(", ")}</p>}
+              </div>
+              <button
+                className="btn-brand py-1.5 text-sm"
+                onClick={() => {
+                  let c: { username: string; password: string } | undefined;
+                  act((d, n) => {
+                    const res = approveAccess(d, r.id, n, origin);
+                    if (res.ok) c = res.credentials;
+                    return res;
+                  });
+                  if (c) onCreds({ name: r.name, email: r.email, link: `${origin}/staff`, ...c });
+                }}
+              >
+                <UserCheck className="size-4" /> Approve & send login
+              </button>
+              <button className="btn-ghost py-1.5 text-sm" onClick={() => confirm(`Decline the request from ${r.name}?`) && act((d, n) => declineAccess(d, r.id, n))}>
+                <UserX className="size-4" /> Decline
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {handled.length > 0 && (
+        <ul className="mt-3 space-y-1 text-sm text-ink/50">
+          {handled.map((r) => (
+            <li key={r.id}>
+              {r.name} ({r.email}) — {r.status === "approved" ? "approved" : "declined"} {r.decidedAt && fmtDate(r.decidedAt)}
+            </li>
+          ))}
+        </ul>
+      )}
+      <h2 className="mt-8 font-display text-lg font-bold">Staff accounts</h2>
+    </section>
   );
 }
 
@@ -496,7 +579,8 @@ function AddStaff({ initial, onClose, onCreated }: { initial: { role: StaffRole;
             <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as StaffRole })}>
               <option value="director">Course director</option>
               <option value="assistant">Assistant</option>
-              <option value="admin">School team (portal)</option>
+              <option value="professor">Professor</option>
+              <option value="admin">DSI team (portal)</option>
             </select>
           </div>
           {f.role !== "admin" ? (
@@ -548,7 +632,7 @@ function CredentialsDialog({ creds, onClose }: { creds: Creds; onClose: () => vo
           </button>
         </div>
         <p className="mt-1 text-sm text-ink/60">
-          Logged in Sent mail to {creds.email}. Real email delivery comes with Supabase, so for now copy these or open them in your email app.
+          Sent to {creds.email}.
         </p>
         <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-paper p-4 font-mono text-sm">{text}</pre>
         <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -595,11 +679,121 @@ function CoursesTab() {
             </button>
           ))}
         </div>
-        <p className="text-sm text-ink/55">
-          Use <b className="text-ink">⇅</b> on a course to make it optional or mandatory.
-        </p>
       </div>
       {p ? <Courses year={year} /> : <Empty title="No programme yet" text="Create one under Programmes." />}
+    </div>
+  );
+}
+
+// ───────────── All students (every Master's) ─────────────
+function AllStudents() {
+  const { school, setViewProgramme } = useStore();
+  const [q, setQ] = useState("");
+  const [prog, setProg] = useState("");
+  const [year, setYear] = useState<0 | Year>(0);
+  const [profile, setProfile] = useState<User | null>(null);
+  const rows = school.users
+    .filter((u) => u.role === "student")
+    .filter((u) => (!prog || u.programmeId === prog) && (!year || u.year === year))
+    .filter((u) => (u.name + u.username + u.email).toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => (a.programmeId ?? "").localeCompare(b.programmeId ?? "") || a.name.localeCompare(b.name));
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <select className="input w-auto" value={prog} onChange={(e) => setProg(e.target.value)} aria-label="Master's">
+          <option value="">All Master&apos;s</option>
+          {school.programmes.map((p) => (
+            <option key={p.id} value={p.id}>{p.short}</option>
+          ))}
+        </select>
+        <div className="flex gap-1 rounded-xl border border-line bg-white p-1 text-sm">
+          {([0, 1, 2] as const).map((y) => (
+            <button key={y} onClick={() => setYear(y)} className={`rounded-lg px-3 py-1 font-semibold ${year === y ? "bg-brand text-white" : "text-ink/60"}`}>
+              {y === 0 ? "All" : `Year ${y}`}
+            </button>
+          ))}
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink/40" />
+          <input className="input w-60 pl-9" placeholder="Name, number or email" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <span className="text-sm text-ink/50">{rows.length} students</span>
+        {prog && (
+          <button
+            className="btn-ghost ml-auto"
+            onClick={() => download(`option-${prog.toLowerCase()}-students.csv`, generalListCsv(scope(school, prog), year || undefined))}
+          >
+            <FileSpreadsheet className="size-4" /> Download list
+          </button>
+        )}
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="border-b border-line bg-band/60 text-xs uppercase tracking-wide text-ink/55">
+            <tr>
+              <th className="px-4 py-3 font-semibold">ID</th>
+              <th className="px-4 py-3 font-semibold">Student</th>
+              <th className="px-4 py-3 font-semibold">Master&apos;s</th>
+              <th className="px-4 py-3 font-semibold">Year</th>
+              <th className="px-4 py-3 font-semibold">Options</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-ink/50">No students match.</td>
+              </tr>
+            )}
+            {rows.map((u) => {
+              const sels = activeSelections(school, u.id);
+              const pending = sels.filter((x) => x.status === "pending").length;
+              return (
+                <tr key={u.id} className="cursor-pointer hover:bg-paper/60" onClick={() => {
+                    if (u.programmeId) setViewProgramme(u.programmeId);
+                    setProfile(u);
+                  }}>
+                  <td className="px-4 py-3 font-mono text-xs">{u.username}</td>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-2.5">
+                      <Avatar user={u} size={30} />
+                      <span>
+                        <span className="block font-medium">{u.name}</span>
+                        <span className="block text-xs text-ink/50">{u.email}</span>
+                      </span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{school.programmes.find((p) => p.id === u.programmeId)?.short ?? "—"}</td>
+                  <td className="px-4 py-3 text-ink/60">{u.year ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {sels.length - pending} enrolled
+                    {pending > 0 && <span className="ml-1 text-xs font-semibold text-amber-700">· {pending} pending</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {profile && <ProfileModal user={profile} onClose={() => setProfile(null)} />}
+    </div>
+  );
+}
+
+// ───────────── Rounds & requests (override for any Master's) ─────────────
+function RoundsAndRequests() {
+  const { school, viewProgramme, setViewProgramme } = useStore();
+  return (
+    <div>
+      <select className="input mb-5 w-auto font-semibold" value={viewProgramme} onChange={(e) => setViewProgramme(e.target.value)} aria-label="Master's">
+        {school.programmes.map((x) => (
+          <option key={x.id} value={x.id}>{x.short} — {x.name}</option>
+        ))}
+      </select>
+      <h3 className="mb-3 font-display text-lg font-bold">Selection rounds</h3>
+      <Rounds />
+      <h3 className="mb-3 mt-8 font-display text-lg font-bold">Seat requests</h3>
+      <Requests />
     </div>
   );
 }

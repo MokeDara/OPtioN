@@ -3,11 +3,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, KeyRound, Pencil } from "lucide-react";
-import { AppHeader, homeFor } from "@/components/ui";
+import { AppHeader, homeForUser } from "@/components/ui";
 import { ProfileCard, ProfileFields } from "@/components/profile";
 import { ProgrammeInfo } from "@/components/programme-info";
 import { useStore } from "@/lib/store";
-import { changePassword } from "@/lib/logic";
+import { changePassword, directorOf } from "@/lib/logic";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -24,7 +24,7 @@ export default function ProfilePage() {
   }, [user, router]);
   if (!user) return null;
 
-  const home = homeFor(user.role);
+  const home = homeForUser(user);
 
   return (
     <>
@@ -70,7 +70,7 @@ export default function ProfilePage() {
 
         {user.programmeId && (
           <div className="mt-6">
-            <ProgrammeInfo p={db.programme} schoolContact={db.schoolContact} />
+            <ProgrammeInfo p={db.programme} schoolContact={db.schoolContact} director={directorOf(db, db.programme.id)} />
           </div>
         )}
 

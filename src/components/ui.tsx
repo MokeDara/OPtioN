@@ -2,11 +2,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CheckCircle2, Clock3, LogOut, X, XCircle } from "lucide-react";
+import { Bell, BookOpen, CheckCircle2, Clock3, LayoutDashboard, LogOut, X, XCircle } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { PrefsToggle, useT } from "@/lib/prefs";
 import { Avatar } from "@/components/profile";
 import { roundState } from "@/lib/logic";
 import type { Role, Round, SelectionStatus, User } from "@/lib/types";
+
+/** The department line shown on the home page and the professor access page. */
+export const DEPARTMENT_LINE = "Department of Information Systems | University of Minho";
 
 export function Logo({ className = "", inverted = false }: { className?: string; inverted?: boolean }) {
   return (
@@ -96,13 +100,14 @@ export const fmtDate = (iso: string) =>
 
 export function RoundPill({ round }: { round: Round }) {
   const { now } = useStore();
+  const t = useT();
   const st = roundState(round, now);
   const cls =
     st === "open" ? "bg-emerald-100 text-emerald-800" : st === "upcoming" ? "bg-sky-100 text-sky-800" : "bg-ink/10 text-ink/60";
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
       {st === "open" && <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />}
-      {st === "open" ? "Open" : st === "upcoming" ? "Opens soon" : "Closed"}
+      {t(st === "open" ? "Open" : st === "upcoming" ? "Opens soon" : "Closed")}
     </span>
   );
 }
@@ -159,62 +164,114 @@ export function Inbox({ user }: { user: User }) {
   );
 }
 
-export const homeFor = (role: Role) => (role === "student" ? "/student" : role === "admin" ? "/portal" : "/director");
+export const homeFor = (role: Role) => (role === "student" ? "/student" : role === "admin" ? "/portal" : role === "professor" ? "/my-courses" : "/director");
 export const signInFor = (role: Role) => (role === "student" ? "/login" : role === "admin" ? "/portal" : "/staff");
-const ROLE_LABEL: Record<Role, string> = { student: "Student", director: "Course director", assistant: "Programme assistant", admin: "School of Engineering" };
 
+// ── Dual-hat: a course director (or assistant) who also teaches switches between two workspaces. ──
+const VIEW_KEY = "option-staff-view";
+type StaffView = "courses" | "programme";
+/** Directors/assistants linked to a professor record wear two hats. */
+export const isDualHat = (u: User) => (u.role === "director" || u.role === "assistant") && !!u.professorId;
+function savedView(): StaffView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "courses" ? "courses" : "programme";
+  } catch {
+    return "programme";
+  }
+}
+function saveView(v: StaffView) {
+  try {
+    localStorage.setItem(VIEW_KEY, v);
+  } catch {}
+}
+/** Where this person lands after sign-in: dual-hat staff return to the workspace they used last. */
+export const homeForUser = (u: User) => (isDualHat(u) && savedView() === "courses" ? "/my-courses" : homeFor(u.role));
+
+const ROLE_LABEL: Record<Role, string> = { student: "Student", director: "Course director", assistant: "Programme assistant", professor: "Professor", admin: "Department of Information Systems" };
+
+const CALENDAR = { href: "/calendar", label: "Calendar & news" };
+const PROGRAMME_NAV = [{ href: "/director", label: "Dashboard" }, { href: "/professors", label: "Professors" }, CALENDAR];
+const COURSES_NAV = [{ href: "/my-courses", label: "My courses" }, CALENDAR];
 const NAV: Record<Role, { href: string; label: string }[]> = {
-  student: [
-    { href: "/student", label: "My options" },
-    { href: "/calendar", label: "Calendar & news" },
-  ],
-  director: [
-    { href: "/director", label: "Dashboard" },
-    { href: "/professors", label: "Professors" },
-    { href: "/calendar", label: "Calendar & news" },
-  ],
-  assistant: [
-    { href: "/director", label: "Dashboard" },
-    { href: "/professors", label: "Professors" },
-    { href: "/calendar", label: "Calendar & news" },
-  ],
+  student: [{ href: "/student", label: "My options" }, CALENDAR],
+  director: PROGRAMME_NAV,
+  assistant: PROGRAMME_NAV,
+  professor: COURSES_NAV,
   admin: [{ href: "/portal", label: "Portal" }],
 };
 
+/** "My Courses (Professor view) | Programme Management (Director view)" in the header. */
+function WorkspaceSwitch({ view }: { view: StaffView }) {
+  const t = useT();
+  const router = useRouter();
+  const go = (v: StaffView) => {
+    saveView(v);
+    router.push(v === "courses" ? "/my-courses" : "/director");
+  };
+  const btn = (v: StaffView, label: string, Icon: typeof BookOpen, hint: string) => (
+    <button
+      onClick={() => go(v)}
+      aria-pressed={view === v}
+      title={t(hint)}
+      className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition ${view === v ? "bg-white text-brand" : "text-white/80 hover:bg-white/10"}`}
+    >
+      <Icon className="size-3.5" /> {t(label)}
+    </button>
+  );
+  return (
+    <div className="flex w-fit gap-0.5 rounded-xl bg-white/15 p-0.5" role="group" aria-label={t("Workspace")}>
+      {btn("courses", "My Courses", BookOpen, "Professor view")}
+      {btn("programme", "Programme Management", LayoutDashboard, "Director view")}
+    </div>
+  );
+}
+
 export function AppHeader({ user, children }: { user: User; children?: React.ReactNode }) {
   const { logout } = useStore();
+  const t = useT();
   const router = useRouter();
   const path = usePathname();
+  const dual = isDualHat(user);
+  const view: StaffView = path === "/my-courses" ? "courses" : "programme";
+  const nav = dual && view === "courses" ? COURSES_NAV : NAV[user.role];
   return (
     <header className="sticky top-0 z-30 bg-brand text-white">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-5">
-        <Link href={homeFor(user.role)}>
+        <Link href={homeForUser(user)}>
           <Logo className="text-white" inverted />
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV[user.role].map((n) => (
+          {nav.map((n) => (
             <Link
               key={n.href}
               href={n.href}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${path === n.href ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"}`}
             >
-              {n.label}
+              {t(n.label)}
             </Link>
           ))}
         </nav>
-        <div className="flex-1">{children}</div>
+        <div className="flex flex-1 items-center gap-3">
+          {dual && (
+            <span className="hidden xl:block">
+              <WorkspaceSwitch view={view} />
+            </span>
+          )}
+          {children}
+        </div>
         <div className="flex items-center gap-2">
+          <PrefsToggle onBrand className="mr-1" />
           {user.role === "student" && <Inbox user={user} />}
           {user.role !== "admin" ? (
             <Link href="/profile" className="flex items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 hover:bg-white/10" title="My profile">
               <Avatar user={user} size={34} className="ring-2 ring-white/40" />
               <span className="hidden text-left lg:block">
                 <span className="block text-sm font-semibold leading-tight">{user.name}</span>
-                <span className="block text-xs text-white/60">{user.role === "student" ? `${user.username} · Year ${user.year}` : ROLE_LABEL[user.role]}</span>
+                <span className="block text-xs text-white/60">{user.role === "student" ? `${user.username} · ${t("Year")} ${user.year}` : t(ROLE_LABEL[user.role])}</span>
               </span>
             </Link>
           ) : (
-            <span className="text-sm font-semibold">{ROLE_LABEL.admin}</span>
+            <span className="hidden text-sm font-semibold sm:inline">{t(ROLE_LABEL.admin)}</span>
           )}
           <button
             onClick={() => {
@@ -222,18 +279,23 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
               router.push(signInFor(user.role));
             }}
             className="ml-2 rounded-xl p-2 hover:bg-white/10"
-            aria-label="Sign out"
-            title="Sign out"
+            aria-label={t("Sign out")}
+            title={t("Sign out")}
           >
             <LogOut className="size-5" />
           </button>
         </div>
       </div>
+      {dual && (
+        <div className="mx-auto max-w-6xl px-5 pb-2 xl:hidden">
+          <WorkspaceSwitch view={view} />
+        </div>
+      )}
       {/* mobile nav */}
       <nav className="flex gap-1 overflow-x-auto px-5 pb-2 md:hidden">
-        {NAV[user.role].map((n) => (
+        {nav.map((n) => (
           <Link key={n.href} href={n.href} className={`whitespace-nowrap rounded-lg px-3 py-1 text-sm font-semibold ${path === n.href ? "bg-white/20" : "text-white/75"}`}>
-            {n.label}
+            {t(n.label)}
           </Link>
         ))}
       </nav>
@@ -249,7 +311,7 @@ export function useRequireRole(roles: Role | Role[], signIn?: string) {
   const allowed = !!user && list.includes(user.role);
   useEffect(() => {
     if (!user) router.replace(signIn ?? signInFor(list[0]));
-    else if (!list.includes(user.role)) router.replace(homeFor(user.role));
+    else if (!list.includes(user.role)) router.replace(homeForUser(user));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, router, list.join(), signIn]);
   return allowed ? user : null;

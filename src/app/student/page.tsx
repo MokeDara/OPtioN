@@ -6,12 +6,14 @@ import { AppHeader, Countdown, RoundPill, SeatMeter, StatusBadge, fmtDate, useRe
 import { CourseDetail, CourseImage } from "@/components/course-detail";
 import { Avatar } from "@/components/profile";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/prefs";
 import { announcementsFor, groupEcts, groupsForYear, optionFor, pendingCount, requiredEcts, roundForYear, roundState, seatsLeft, seatsTaken } from "@/lib/logic";
 import type { Course, Year } from "@/lib/types";
 
 export default function StudentPage() {
   const user = useRequireRole("student");
   const { db, now, pick, drop } = useStore();
+  const t = useT();
   const [openCourse, setOpenCourse] = useState<string | null>(null);
   const [requesting, setRequesting] = useState<Course | null>(null);
 
@@ -21,9 +23,9 @@ export default function StudentPage() {
       <>
         <AppHeader user={user} />
         <main className="mx-auto max-w-xl px-5 py-16 text-center">
-          <h1 className="font-display text-2xl font-bold">Which year are you in?</h1>
-          <p className="mt-2 text-ink/60">Add your level to your profile so we can show your options.</p>
-          <Link href="/profile" className="btn-brand mt-6">Complete my profile</Link>
+          <h1 className="font-display text-2xl font-bold">{t("Which year are you in?")}</h1>
+          <p className="mt-2 text-ink/60">{t("Add your level to your profile so we can show your options.")}</p>
+          <Link href="/profile" className="btn-brand mt-6">{t("Complete my profile")}</Link>
         </main>
       </>
     );
@@ -64,18 +66,18 @@ export default function StudentPage() {
           )}
         </div>
       );
-    if (!isOpen) return <span className="text-xs font-semibold text-ink/40">{state === "upcoming" ? "Not open yet" : "Closed"}</span>;
-    if (seatsLeft(db, c) === 0) return <button className={`btn-ghost ${big}`} disabled>Full</button>;
+    if (!isOpen) return <span className="text-xs font-semibold text-ink/40">{t(state === "upcoming" ? "Not open yet" : "Closed")}</span>;
+    if (seatsLeft(db, c) === 0) return <button className={`btn-ghost ${big}`} disabled>{t("Full")}</button>;
     if (c.ects > room) return <span className="text-xs text-ink/45">{g.name} already chosen</span>;
     if (c.requiresApproval)
       return (
         <button className={`btn-ghost border-brand text-brand ${big}`} onClick={() => setRequesting(c)}>
-          Request seat
+          {t("Request seat")}
         </button>
       );
     return (
       <button className={`btn-brand ${big}`} onClick={() => pick(c.id)}>
-        Choose
+        {t("Choose")}
       </button>
     );
   };
@@ -86,7 +88,7 @@ export default function StudentPage() {
   return (
     <>
       <AppHeader user={user}>
-        <span className="hidden rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold md:inline">Year {year} · {db.programme.short}</span>
+        <span className="hidden rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold md:inline">{t("Year")} {year} · {db.programme.short}</span>
       </AppHeader>
 
       <main className="mx-auto max-w-6xl px-5 py-8">
@@ -100,23 +102,23 @@ export default function StudentPage() {
                   {db.programme.short} · {db.programme.name}
                 </p>
                 <div className="mt-1 flex items-center gap-3">
-                  <h1 className="font-display text-3xl font-bold">Hi {user.name.split(" ")[0]}</h1>
+                  <h1 className="font-display text-3xl font-bold">{t("Hi")} {user.name.split(" ")[0]}</h1>
                   <RoundPill round={round} />
                 </div>
                 <p className="mt-1 text-ink/60">
                   {round.label}: {fmtDate(round.opensAt)} → {fmtDate(round.closesAt)}
                 </p>
                 <Link href="/profile#programme" className="mt-1 inline-block text-sm font-semibold text-brand hover:underline">
-                  About my Master&apos;s →
+                  {t("About my Master's →")}
                 </Link>
               </div>
             </div>
             <div className="flex items-center gap-2 rounded-xl bg-paper px-4 py-3">
               <CalendarClock className="size-5 text-ink/50" />
               <div className="text-sm">
-                {state === "open" && <>Closes in <b className="text-lg"><Countdown to={round.closesAt} /></b></>}
-                {state === "upcoming" && <>Opens in <b className="text-lg"><Countdown to={round.opensAt} /></b></>}
-                {state === "closed" && <span className="font-semibold">Selection closed</span>}
+                {state === "open" && <>{t("Closes in")} <b className="text-lg"><Countdown to={round.closesAt} /></b></>}
+                {state === "upcoming" && <>{t("Opens in")} <b className="text-lg"><Countdown to={round.opensAt} /></b></>}
+                {state === "closed" && <span className="font-semibold">{t("Selection closed")}</span>}
               </div>
             </div>
           </div>

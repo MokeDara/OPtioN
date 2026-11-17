@@ -1,6 +1,6 @@
 // Pure selection rules. No React, no storage — so they can be tested on their own
 // and later moved to Supabase (database functions / RLS) without changing the UI.
-import type { Announcement, CalendarEvent, Course, DB, Email, OptionGroup, Professor, Programme, Role, Round, RoundState, Selection, SupportTicket, TicketStatus, TicketTopic, User, Year } from "./types";
+import type { AccessRequest, Announcement, CalendarEvent, Course, DB, Email, OptionGroup, Professor, Programme, Role, Round, RoundState, Selection, SupportTicket, TicketStatus, TicketTopic, User, Year } from "./types";
 import { STAFF_ROLES } from "./types";
 
 export type Result = { ok: true; db: DB; message?: string } | { ok: false; error: string };
@@ -20,10 +20,10 @@ export function roundForYear(db: DB, year: Year, programmeId?: string): Round | 
   return db.rounds.find((r) => r.year === year && (!programmeId || r.programmeId === programmeId));
 }
 
-// ───────────────────────── programmes (School of Engineering) ─────────────────────────
+// ───────────────────────── programmes (Department of Information Systems) ─────────────────────────
 
 /** A view of the data limited to one programme: its slots, courses, rounds, students, events and news.
- *  Staff, the School team, professors and emails stay visible. Reads only — write with the full data. */
+ *  Staff, the DSI team, professors and emails stay visible. Reads only — write with the full data. */
 export function scope(db: DB, programmeId?: string): DB {
   const programme = db.programmes.find((p) => p.id === programmeId);
   if (!programme) return { ...db, programme: db.programmes[0] };
@@ -424,7 +424,7 @@ function checkProfile(db: DB, u: User | NewUser, selfId?: string): string | null
 }
 
 export function registerUser(db: DB, input: NewUser, now: Date): Result & { userId?: string } {
-  if (input.role !== "student") return { ok: false, error: "Only students can sign up. Staff accounts are created by the School of Engineering." };
+  if (input.role !== "student") return { ok: false, error: "Only students can sign up. Staff accounts are created by the Department of Information Systems." };
   if (!db.programmes.some((p) => p.id === input.programmeId)) return { ok: false, error: "Choose your programme." };
   const username = input.username.trim().toLowerCase();
   if (db.users.some((u) => u.username.toLowerCase() === username)) return { ok: false, error: `${username} already has an account — sign in instead.` };
@@ -476,7 +476,7 @@ export function randomPassword(len = 10): string {
   return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
-const ROLE_NAME: Record<Role, string> = { director: "course director", assistant: "assistant", admin: "School of Engineering team", student: "student" };
+const ROLE_NAME: Record<Role, string> = { director: "course director", assistant: "assistant", professor: "professor", admin: "DSI team", student: "student" };
 
 function inviteEmail(u: User, password: string, origin: string, now: Date, reset = false): Email {
   const link = `${origin}${u.role === "admin" ? "/portal" : "/staff"}`;
@@ -489,15 +489,15 @@ function inviteEmail(u: User, password: string, origin: string, now: Date, reset
     subject: reset ? "Your OPtioN! password was reset" : `Your OPtioN! ${ROLE_NAME[u.role]} access`,
     body:
       `Hi ${u.name.split(" ")[0]},\n\n` +
-      (reset ? "Your password was reset by the School of Engineering.\n\n" : `You now have ${ROLE_NAME[u.role]} access to OPtioN!.\n\n`) +
+      (reset ? "Your password was reset by the Department of Information Systems.\n\n" : `You now have ${ROLE_NAME[u.role]} access to OPtioN!.\n\n`) +
       `Sign in here: ${link}\nUsername: ${u.username}\nPassword: ${password}\n\nPlease change your password after signing in.`,
   };
 }
 
-export type NewStaff = { name: string; email: string; role: "director" | "assistant" | "admin"; title?: string; programmeId?: string };
+export type NewStaff = { name: string; email: string; role: "director" | "assistant" | "professor" | "admin"; title?: string; programmeId?: string };
 
 export function createStaff(db: DB, input: NewStaff, now: Date, origin: string): Result & { credentials?: { username: string; password: string } } {
-  if (!STAFF_ROLES.includes(input.role) && input.role !== "admin") return { ok: false, error: "Choose director, assistant or School team." };
+  if (!STAFF_ROLES.includes(input.role) && input.role !== "admin") return { ok: false, error: "Choose director, assistant, professor or DSI team." };
   if (input.role !== "admin" && !db.programmes.some((p) => p.id === input.programmeId)) return { ok: false, error: "Choose the programme they will manage." };
   if (input.role === "director") {
     const clash = oneDirector(db, input.programmeId);
@@ -675,7 +675,7 @@ export function createTicket(db: DB, input: NewTicket, me: User | null, now: Dat
     subject: input.subject.trim(), page: input.page, status: "open", createdAt: at, updatedAt: at,
     messages: [{ from: "user", authorName: name, body: input.message.trim(), at }],
   };
-  return { ok: true, db: { ...db, tickets: [t, ...db.tickets] }, message: "Sent to the School of Engineering team. You'll see the reply here.", ticketId: t.id };
+  return { ok: true, db: { ...db, tickets: [t, ...db.tickets] }, message: "Sent to the DSI team. You'll see the reply here.", ticketId: t.id };
 }
 
 export function replyTicket(db: DB, ticketId: string, body: string, author: User | null, now: Date): Result {
@@ -694,7 +694,7 @@ export function replyTicket(db: DB, ticketId: string, body: string, author: User
   if (team)
     emails.unshift({
       id: uid("mail"), to: t.userId ? [t.userId] : [], toAddresses: [t.email], kind: "support", sentAt: at,
-      subject: `Re: ${t.subject}`, body: `${body.trim()}\n\n— ${author!.name}, School of Engineering`,
+      subject: `Re: ${t.subject}`, body: `${body.trim()}\n\n— ${author!.name}, Department of Information Systems`,
     });
   return { ok: true, db: { ...db, tickets: db.tickets.map((x) => (x.id === ticketId ? next : x)), emails }, message: team ? `Reply sent to ${t.name}.` : "Message sent." };
 }
@@ -708,7 +708,7 @@ export function setTicketStatus(db: DB, ticketId: string, status: TicketStatus, 
 /** Link a director/assistant to the professor record they teach as ("new" creates one from their account). */
 export function linkStaffProfessor(db: DB, userId: string, professorId: string | "new" | undefined): Result {
   const u = db.users.find((x) => x.id === userId);
-  if (!u || !STAFF_ROLES.includes(u.role)) return { ok: false, error: "Only directors and assistants can be linked to a professor." };
+  if (!u || !STAFF_ROLES.includes(u.role)) return { ok: false, error: "Only programme staff can be linked to a professor." };
   if (professorId === undefined) return { ok: true, db: { ...db, users: db.users.map((x) => (x.id === userId ? { ...x, professorId: undefined } : x)) }, message: `${u.name} is no longer linked to a professor.` };
   let professors = db.professors;
   let pid = professorId;
@@ -728,4 +728,157 @@ export function linkStaffProfessor(db: DB, userId: string, professorId: string |
     db: { ...db, professors, users: db.users.map((x) => (x.id === userId ? { ...x, professorId: pid } : x)) },
     message: `${u.name} also teaches as ${prof.title} ${prof.name}.`,
   };
+}
+
+// ───────────────────────── professor access requests ─────────────────────────
+
+/** Institutional addresses of the University of Minho: name@dsi.uminho.pt, name@eng.uminho.pt, … */
+export const isInstitutionalEmail = (e: string) => /^[^\s@]+@([a-z0-9-]+\.)*uminho\.pt$/i.test(e.trim());
+
+export type NewAccessRequest = { name: string; email: string; programmeId: string; courseIds: string[] };
+
+/** A professor asks for access. Nothing is created until the portal approves it. */
+export function requestAccess(db: DB, input: NewAccessRequest, now: Date): Result {
+  const name = input.name.trim();
+  const mail = input.email.trim().toLowerCase();
+  if (!name || name.split(/\s+/).length < 2) return { ok: false, error: "Please enter your full name (first and last)." };
+  if (!isInstitutionalEmail(mail)) return { ok: false, error: "Use your institutional email (e.g. name@dsi.uminho.pt)." };
+  const programme = db.programmes.find((p) => p.id === input.programmeId);
+  if (!programme) return { ok: false, error: "Choose the Master's you teach in." };
+  if (db.users.some((u) => u.email.toLowerCase() === mail)) return { ok: false, error: "This email already has access — sign in below." };
+  const requests = db.accessRequests ?? [];
+  if (requests.some((r) => r.status === "pending" && r.email.toLowerCase() === mail))
+    return { ok: false, error: "A request for this email is already waiting for approval." };
+  const courseIds = input.courseIds.filter((id) => db.courses.some((c) => c.id === id && c.programmeId === programme.id));
+  const req: AccessRequest = { id: uid("req"), name, email: mail, programmeId: programme.id, courseIds, status: "pending", createdAt: now.toISOString() };
+  const admins = db.users.filter((u) => u.role === "admin").map((u) => u.id);
+  const units = courseIds.map((id) => db.courses.find((c) => c.id === id)?.name).filter(Boolean);
+  const notice = {
+    ...email(admins, `Access request: ${name} (${programme.short})`, `${name} <${mail}> asked for professor access to ${programme.short}.${units.length ? `\nTeaches: ${units.join(", ")}.` : ""}\n\nApprove or decline it in the portal, under Staff access.`, now),
+    kind: "system" as const,
+  };
+  return {
+    ok: true,
+    db: { ...db, accessRequests: [req, ...requests], emails: [notice, ...db.emails] },
+    message: "Request sent. You'll get your login by email once it's approved.",
+  };
+}
+
+/** Approve: create the account, link the professor record and their units, email the login. */
+export function approveAccess(db: DB, requestId: string, now: Date, origin: string): Result & { credentials?: { username: string; password: string } } {
+  const req = (db.accessRequests ?? []).find((r) => r.id === requestId);
+  if (!req || req.status !== "pending") return { ok: false, error: "This request was already handled." };
+  const created = createStaff(db, { name: req.name, email: req.email, role: "professor", title: "Prof.", programmeId: req.programmeId }, now, origin);
+  if (!created.ok) return created;
+  let next = created.db;
+  const user = next.users.find((u) => u.email.toLowerCase() === req.email.toLowerCase())!;
+  const linked = linkStaffProfessor(next, user.id, "new");
+  if (linked.ok) next = linked.db;
+  const profId = next.users.find((u) => u.id === user.id)?.professorId;
+  if (profId && req.courseIds.length) next = { ...next, courses: next.courses.map((c) => (req.courseIds.includes(c.id) ? { ...c, professorId: profId } : c)) };
+  next = {
+    ...next,
+    accessRequests: (next.accessRequests ?? []).map((r) => (r.id === requestId ? { ...r, status: "approved", decidedAt: now.toISOString(), userId: user.id } : r)),
+  };
+  return { ok: true, db: next, message: `Access approved — login sent to ${req.email}.`, credentials: created.credentials };
+}
+
+export function declineAccess(db: DB, requestId: string, now: Date): Result {
+  const req = (db.accessRequests ?? []).find((r) => r.id === requestId);
+  if (!req || req.status !== "pending") return { ok: false, error: "This request was already handled." };
+  const notice: Email = {
+    ...email([], "Your OPtioN! access request", `Hi ${req.name.split(" ")[0]},\n\nYour request for professor access could not be approved. If you think this is a mistake, reply to the DSI team.`, now),
+    toAddresses: [req.email],
+    kind: "system",
+  };
+  return {
+    ok: true,
+    db: {
+      ...db,
+      accessRequests: (db.accessRequests ?? []).map((r) => (r.id === requestId ? { ...r, status: "declined", decidedAt: now.toISOString() } : r)),
+      emails: [notice, ...db.emails],
+    },
+    message: `Request from ${req.name} declined.`,
+  };
+}
+
+/** "Forgot password?" on the staff sign-in: the DSI team gets a support request and can use Reset & resend.
+ *  The answer is the same whether or not the email has an account, so the page doesn't reveal who has access. */
+export function requestPasswordReset(db: DB, address: string, now: Date): Result {
+  const mail = address.trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(mail)) return { ok: false, error: "Enter a valid email address." };
+  const done = "If this email has access, the DSI team will email you a new password shortly.";
+  const u = db.users.find((x) => x.email.toLowerCase() === mail && STAFF_ROLES.includes(x.role));
+  if (!u) return { ok: true, db, message: done };
+  const at = now.toISOString();
+  const ticket: SupportTicket = {
+    id: uid("t"), userId: u.id, name: u.name, email: u.email, role: u.role, programmeId: u.programmeId, topic: "access",
+    subject: "Password reset request", page: "/staff/forgot", status: "open", createdAt: at, updatedAt: at,
+    messages: [{ from: "user", authorName: u.name, body: `I forgot my password. Please send me a new one (Staff access → Reset & resend for ${u.username}).`, at }],
+  };
+  return { ok: true, db: { ...db, tickets: [ticket, ...db.tickets] }, message: done };
+}
+
+// ───────────────────────── roles & professor view ─────────────────────────
+
+/** DSI portal: raise a professor to course director of their Master's, or move a director back to professor. */
+export function setStaffRole(db: DB, userId: string, role: "professor" | "director", now: Date): Result {
+  const u = db.users.find((x) => x.id === userId);
+  if (!u || !(u.role === "professor" || u.role === "director" || u.role === "assistant")) return { ok: false, error: "Can't change this account." };
+  if (u.role === role) return { ok: true, db };
+  if (role === "director") {
+    if (!u.programmeId) return { ok: false, error: `Choose the Master's ${u.name} will direct first.` };
+    const clash = oneDirector(db, u.programmeId, u.id);
+    if (clash) return { ok: false, error: clash };
+  }
+  const prog = db.programmes.find((p) => p.id === u.programmeId)?.short ?? "their Master's";
+  const subject = role === "director" ? `You are now course director of ${prog}` : `Your OPtioN! access changed`;
+  const body =
+    role === "director"
+      ? `Hello ${u.name}, the DSI team made you course director of ${prog}. Sign in as usual: you can switch between My Courses and Programme Management at the top of the page.`
+      : `Hello ${u.name}, your OPtioN! access is now Professor. You keep seeing the courses you teach under My Courses.`;
+  return {
+    ok: true,
+    db: {
+      ...db,
+      users: db.users.map((x) => (x.id === userId ? { ...x, role, title: role === "director" ? x.title ?? "Course director" : x.title } : x)),
+      emails: [email([u.email], subject, body, now), ...db.emails],
+    },
+    message: role === "director" ? `${u.name} is now course director of ${prog}.` : `${u.name} is now a professor.`,
+  };
+}
+
+export type RosterRow = { student: User; status: Selection["status"] | "mandatory"; selection?: Selection };
+
+/** Students on one course: enrolled, pending (requesting) and completed. Mandatory courses list the whole year. */
+export function courseRoster(db: DB, courseId: string): RosterRow[] {
+  const c = db.courses.find((x) => x.id === courseId);
+  if (!c) return [];
+  const byName = (a: RosterRow, b: RosterRow) => a.student.name.localeCompare(b.student.name);
+  if (!c.groupId)
+    return db.users
+      .filter((u) => u.role === "student" && u.programmeId === c.programmeId && u.year === c.year)
+      .map((student) => ({ student, status: "mandatory" as const }))
+      .sort(byName);
+  return db.selections
+    .filter((s) => s.courseId === courseId && (s.status === "enrolled" || s.status === "pending"))
+    .map((s) => ({ student: db.users.find((u) => u.id === s.studentId)!, status: s.status, selection: s }))
+    .filter((r) => r.student)
+    .sort((a, b) => (a.status === b.status ? byName(a, b) : a.status === "pending" ? 1 : -1));
+}
+
+/** Professor view: strictly the courses this professor teaches (any Master's) and their course directors. */
+export function professorView(db: DB, professorId?: string) {
+  const courses = professorId
+    ? db.courses.filter((c) => c.professorId === professorId).sort((a, b) => a.programmeId.localeCompare(b.programmeId) || a.year - b.year || a.name.localeCompare(b.name))
+    : [];
+  const programmeIds = [...new Set(courses.map((c) => c.programmeId))];
+  const directors = programmeIds.map((id) => ({ programme: db.programmes.find((p) => p.id === id)!, director: directorOf(db, id) })).filter((x) => x.programme);
+  return { courses, directors };
+}
+
+/** Professors teaching at least one course in the given (scoped) data — a director's faculty roster. */
+export function professorsTeaching(db: DB): Professor[] {
+  const ids = new Set(db.courses.map((c) => c.professorId).filter(Boolean));
+  return db.professors.filter((p) => ids.has(p.id));
 }

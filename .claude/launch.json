@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "option-dev", "runtimeExecutable": "npx", "runtimeArgs": ["next", "dev", "-p", "3107"], "port": 3107 }
+  ]
+}

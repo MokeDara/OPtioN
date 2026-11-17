@@ -40,7 +40,7 @@ export function Thread({ t }: { t: SupportTicket }) {
   );
 }
 
-/** Floating help button on every page: messages go to the School of Engineering team (portal → Support). */
+/** Floating help button on every page: messages go to the DSI team (portal → Support). */
 export function SupportWidget() {
   const { school, user, act } = useStore();
   const path = usePathname();
@@ -90,7 +90,7 @@ export function SupportWidget() {
           setView(mine.length && !open ? "list" : "new");
         }}
         className="fixed bottom-5 right-5 z-40 grid size-14 place-items-center rounded-full bg-brand text-white shadow-xl shadow-brand/30 transition hover:scale-105 hover:bg-brand-dark"
-        aria-label={open ? "Close support" : "Get help from the School of Engineering"}
+        aria-label={open ? "Close support" : "Get help from the DSI team"}
         title="Help & support"
       >
         {open ? <X className="size-6" /> : <LifeBuoy className="size-6" />}

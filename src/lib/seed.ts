@@ -12,6 +12,13 @@ export const AREAS: Record<string, string> = {
   G: "Management",
   D: "Law",
   TInt: "TInt",
+  EngT: "Telecommunications Engineering",
+  EngI: "Informatics Engineering",
+  EEIC: "Industrial Electronics and Computers Engineering",
+  Fis: "Physics",
+  EIS: "Industrial and Systems Engineering",
+  M: "Mathematics",
+  EC: "Civil Engineering",
 };
 
 const FIRST = ["Ana", "Bruno", "Carla", "Diogo", "Eva", "Filipe", "Gabriela", "Hugo", "Inês", "João", "Kai", "Lara", "Miguel", "Nadia", "Omar", "Paula", "Rui", "Sofia", "Tiago", "Vera", "Wei", "Yara", "Amara", "Chidi", "Priya", "Lucas", "Marta", "Noah", "Olga", "Tomás"];
@@ -94,6 +101,7 @@ const groups: OptionGroup[] = [
 ];
 
 let n = 0;
+let cur = P; // programme the next c() call belongs to
 function c(
   year: Year,
   semester: Semester,
@@ -105,7 +113,7 @@ function c(
   n++;
   return {
     id: `c${n}`,
-    programmeId: P,
+    programmeId: cur,
     code: `${extra.groupId ? "OP" : "UC"}${year}${String(n).padStart(2, "0")}`,
     name,
     year,
@@ -213,6 +221,208 @@ const courses: Course[] = [
   c(2, "S1", "Trends and Impacts of Information Systems and Technologies", "TSI", "Emerging IST trends and their impact on organisations and society."),
 ];
 
+// ───────────── Study plans of the other DSI Master's (from the programme documents) ─────────────
+// Units shared with MEGSI reuse its description. Scientific areas are given by the METI and MSI
+// plans; for MECD and MGPE units not shared with MEGSI they are best guesses — fix them in the portal.
+const DESC: Record<string, string> = Object.fromEntries(courses.map((x) => [x.name, x.description]));
+const RESEARCH: Partial<Course> = { capacity: 6, requiresApproval: true, courseDirector: "Course Director", requestPrompt: "Briefly describe the research area you're interested in." };
+const THESIS = (capacity: number, prompt: string): Partial<Course> => ({ ects: 45, capacity, requiresApproval: true, courseDirector: "Course Director", requestPrompt: prompt, details: { teachingType: "Presential" } });
+type Row = [name: string, area: string, description?: string, extra?: Partial<Course>];
+
+/** Mandatory units of one semester. */
+function core(year: Year, semester: Semester, rows: Row[]) {
+  for (const [name, area, d, extra] of rows) courses.push(c(year, semester, name, area, d ?? DESC[name] ?? name, extra));
+}
+/** One Opção slot and the list of units students choose from. */
+function option(pid: string, num: number, year: Year, semester: Semester, rows: Row[], ects = 5) {
+  const id = `${pid}_o${num}`;
+  groups.push({ id, programmeId: pid, year, semester, name: `Opção ${num}`, ects });
+  for (const [name, area, d, extra] of rows) courses.push(c(year, semester, name, area, d ?? DESC[name] ?? name, { groupId: id, ...(name.startsWith("Initiation to Research") ? RESEARCH : {}), ...extra }));
+}
+
+// ── MECD · Data Engineering and Science
+cur = "mecd";
+core(1, "S1", [
+  ["Project Analysis and Risk Management", "EIS", "Evaluating projects and managing their risk."],
+  ["Data and Machine Learning", "EngI", "Data preparation and the core machine learning algorithms."],
+  ["Methodologies for Data Science", "TSI", "Process models and methods for running data science projects."],
+  ["Methods and Algorithms for Multi-objective Optimization", "M", "Optimising several conflicting objectives at once."],
+  ["Data and Information Visualization", "TSI", "Visual representations of data that support analysis and decisions."],
+]);
+const MECD_OPT_I: Row[] = [
+  ["Integrated Project Management", "EIS", "Planning and controlling projects across scope, time, cost and quality."],
+  ["Information Technologies Infrastructures", "TSI"],
+  ["Metrics in Machine Learning", "EngI", "Measuring and comparing the performance of machine learning models."],
+  ["Nonlinear Modelling and Optimization", "M", "Modelling and solving nonlinear optimisation problems."],
+  ["Modelling and Simulation", "EIS", "Building simulation models of systems and processes."],
+  ["Semantic Web", "TSI"],
+];
+option("mecd", 1, 1, "S1", MECD_OPT_I);
+core(1, "S2", [
+  ["Deep Learning", "EngI", "Neural networks and deep architectures for complex data."],
+  ["Development of Analytical Information Systems", "TSI"],
+  ["Requirements Engineering for Data Science", "TSI", "Eliciting and specifying requirements for data-driven solutions."],
+  ["Bayesian Statistics and Applications", "M", "Bayesian inference and its use on real data."],
+  ["Adaptive Systems for Predictive and Prescriptive Analytics", "EIS", "Systems that learn and adapt to forecast and recommend decisions."],
+]);
+option("mecd", 2, 1, "S2", [
+  ["Reinforcement Learning", "EngI", "Agents that learn to act by trial, error and reward."],
+  ["Architectures for Distributed Information Systems", "TSI"],
+  ["Urban Economics", "G", "The economics of cities, location and urban policy."],
+  ["Engineering and Innovation of Services", "TSI"],
+  ["Integrated Project Management", "EIS", "Planning and controlling projects across scope, time, cost and quality."],
+  ["Optimization in Machine Learning", "M", "The optimisation methods behind training machine learning models."],
+  ["Decision Support Systems", "TSI"],
+  ["Data Classification and Clustering Techniques", "M", "Supervised classification and unsupervised clustering of data."],
+]);
+core(2, "A", [["Dissertation", "TSI", "An individual research dissertation in Data Engineering and Science, supervised by a faculty member.", { ects: 45 }]]);
+core(2, "S1", [
+  ["Law and Information", "D"],
+  ["Decision Models and Methods", "EIS", "Quantitative models and methods to support decisions."],
+]);
+option("mecd", 3, 2, "S1", MECD_OPT_I.filter(([name]) => ["Integrated Project Management", "Metrics in Machine Learning", "Nonlinear Modelling and Optimization", "Modelling and Simulation"].includes(name)));
+
+// ── METI · Telecommunications and Informatics Engineering
+cur = "meti";
+core(1, "S1", [
+  ["Digital Communications", "EngT", "Modulation, error control, OFDM and spread-spectrum systems."],
+  ["Emulation and Simulation of Telecommunication Networks", "EngT", "Testing and designing protocols with network emulation and simulation.", { ects: 10 }],
+  ["Network Management and Virtualization", "EngT", "Managing networks, network function virtualisation and SDN."],
+]);
+const METI_A: Row[] = [
+  ["Machine Learning for Enterprise Systems", "TSI"],
+  ["Mobile Computing", "TSI", "Computing and applications for mobile environments."],
+  ["Traffic Routing", "EngT", "Routing protocols and traffic engineering in IP networks."],
+  ["Artificial Intelligence for Telecommunications", "EngI", "AI techniques applied to networks and communication systems."],
+  ["Wireless Networks for the Internet of Things", "EEIC", "Low-power wireless technologies that connect IoT devices."],
+];
+option("meti", 1, 1, "S1", METI_A);
+option("meti", 2, 1, "S1", METI_A);
+core(1, "S2", [
+  ["Integrative Project in Telecommunications and Informatics", "EngT", "A team project bringing the year's telecommunications and informatics together.", { ects: 10 }],
+  ["Access and Core Networks", "EngT", "Access and core network architectures, transmission, multiplexing and switching."],
+  ["Network Services and Multimedia Applications", "EngI", "Encoding, compressing and distributing multimedia over networks."],
+]);
+const METI_B: Row[] = [
+  ["Cybersecurity", "EngT", "Protecting networks and systems against attacks."],
+  ["Radio Frequency Electronics", "EEIC", "Design and implementation of RF circuits and systems."],
+  ["Optics and Lasers", "Fis", "Optical physics and lasers behind optical communications."],
+  ["Information Retrieval", "EngI", "Indexing, searching and ranking large collections of information."],
+  ["Vehicular Networks", "EngT", "Communication between vehicles and road infrastructure."],
+  ["Network Optimization Topics", "EIS", "Optimisation models for planning and operating networks."],
+];
+option("meti", 3, 1, "S2", METI_B);
+option("meti", 4, 1, "S2", METI_B);
+core(2, "A", [["Dissertation", "EngT", "An individual research dissertation in Telecommunications and Informatics, supervised by a faculty member.", { ects: 45 }]]);
+core(2, "S1", [
+  ["Business Training and Entrepreneurship", "EIS", "Starting and running technology-based ventures."],
+  ["Information Technology Project Management", "TSI", "Planning, running and controlling IT projects."],
+  ["Telecommunications and Informatics Seminars", "EngT", "Talks and discussion on current research and industry practice."],
+]);
+
+// ── MGPE · Engineering Project Management
+cur = "mgpe";
+core(1, "S1", [
+  ["Economic Evaluation of Engineering Projects", "G", "Assessing the economic and financial viability of engineering projects."],
+  ["Information Systems for Project Management", "TSI", "Software and information systems that support project management."],
+  ["Introduction to Project Management", "EIS", "Project life cycle, processes and the main management domains."],
+  ["Strategic and Organizational Management", "G", "Strategy and organisational design in project-based organisations."],
+  ["Team Management and Communication", "G", "Leading project teams and managing communication."],
+]);
+option("mgpe", 1, 1, "S1", [
+  ["Analysis and Design of Production Systems in Construction", "EC", "Planning production systems for building and civil engineering works."],
+  ["Design of Production Systems", "EIS", "Designing manufacturing and service production systems."],
+  ["Innovation Management and Marketing", "G", "Managing innovation and bringing it to market."],
+  ["Intelligent Business Processes", "TSI"],
+  ["Project Scheduling", "EIS", "Scheduling techniques and resource levelling for projects."],
+  ["Software Engineering for Information Systems", "TSI", "Engineering practices for building information systems software."],
+  ["Systems and Organizations Dynamic Modeling", "TSI"],
+]);
+core(1, "S2", [
+  ["Emerging Topics in Project Management", "EIS", "New approaches and trends in project management."],
+  ["Quality, Safety and Sustainability Management", "EIS", "Managing quality, safety and sustainability in projects."],
+  ["Program and Portfolio Management", "EIS", "Managing groups of projects and aligning them with strategy."],
+  ["Project Risk Management", "EIS", "Identifying, analysing and responding to project risk."],
+]);
+const MGPE_S2: Row[] = [
+  ["Analysis and Design of Production Systems in Construction", "EC", "Planning production systems for building and civil engineering works."],
+  ["Automatic Software Modeling and Generation", "TSI"],
+  ["Design of Production Systems", "EIS", "Designing manufacturing and service production systems."],
+  ["Development of Project Management Competences", "EIS", "Developing the competences of a professional project manager."],
+  ["Information Systems Auditing", "TSI"],
+  ["Innovation Management and Marketing", "G", "Managing innovation and bringing it to market."],
+  ["Logistic Systems", "EIS", "Design and management of logistics and supply systems."],
+  ["Manufacturing Planning and Control Systems", "EIS", "Planning and controlling production in manufacturing."],
+  ["Maturity and Quality in Information Systems Projects Development", "TSI", "Maturity models and quality in IS development projects."],
+  ["Project Cost Management", "EIS", "Estimating, budgeting and controlling project costs."],
+  ["Project Scheduling", "EIS", "Scheduling techniques and resource levelling for projects."],
+];
+option("mgpe", 2, 1, "S2", MGPE_S2);
+option("mgpe", 3, 1, "S2", MGPE_S2);
+core(2, "S1", [
+  ["Research Methodologies in Engineering Project Management", "EIS", "Research methods for the dissertation in project management."],
+  ["Seminars in Engineering Project Management", "EIS", "Seminars on current practice and research in project management."],
+]);
+core(2, "A", [["Dissertation", "EIS", "An individual research dissertation in Engineering Project Management, supervised by a faculty member.", { ects: 45 }]]);
+
+// ── MSI · Information Systems
+cur = "msi";
+core(1, "S1", [
+  ["Information Technology in Organizations", "TSI", "The role of IT in how organisations work and compete."],
+  ["Software Engineering for Information Systems", "TSI", "Engineering practices for building information systems software."],
+  ["Strategy and Competitiveness", "G", "Strategy as the basis of a firm's competitiveness."],
+]);
+const MSI_ALL: Record<string, Row> = Object.fromEntries(
+  ([
+    ["Databases for Information Systems", "TSI", "Designing and using databases that support information systems."],
+    ["Information Systems for Project Management", "TSI", "Software and information systems that support project management."],
+    ["Information Systems Security Management", "TSI"],
+    ["Intelligent Business Processes", "TSI"],
+    ["Open Innovation Using Information Technologies", "TSI"],
+    ["Project Management in Information Systems and Technologies", "TSI", "Planning, running and controlling IST projects."],
+    ["Semantic Web", "TSI"],
+    ["Systems and Organizations Dynamic Modeling", "TSI"],
+    ["Testing and Validation of Information Systems", "TSI"],
+    ["Digital Innovation", "TInt"],
+    ["Financial Evaluation of Projects", "G", "Financial appraisal of investment projects."],
+    ["Law and Information", "D"],
+    ["Virtual and Augmented Reality", "TInt"],
+    ["Initiation to Research in Information Systems and Technologies", "TSI"],
+    ["Automatic Software Modeling and Generation", "TSI"],
+    ["Computing Systems and Communications", "TSI", "Computer systems, networks and communications for IS professionals."],
+    ["Decision Support Systems", "TSI"],
+    ["Information Systems and Technologies in Government", "TSI"],
+    ["Information Systems Auditing", "TSI"],
+    ["Urban Informatics", "TSI"],
+    ["Digital Games", "TInt"],
+    ["e-Business", "TSI", "Business models and systems for electronic business."],
+    ["Leadership and Change Management", "G"],
+  ] as Row[]).map((r) => [r[0], r]),
+);
+const msi = (...names: string[]) => names.map((x) => MSI_ALL[x]);
+const MSI_S1_COMMON = ["Information Systems for Project Management", "Information Systems Security Management", "Intelligent Business Processes", "Open Innovation Using Information Technologies", "Project Management in Information Systems and Technologies", "Semantic Web", "Systems and Organizations Dynamic Modeling", "Testing and Validation of Information Systems"];
+option("msi", 1, 1, "S1", msi("Databases for Information Systems", ...MSI_S1_COMMON));
+option("msi", 2, 1, "S1", msi("Databases for Information Systems", "Digital Innovation", "Financial Evaluation of Projects", ...MSI_S1_COMMON, "Law and Information", "Virtual and Augmented Reality"));
+option("msi", 3, 1, "S1", msi("Databases for Information Systems", "Digital Innovation", "Initiation to Research in Information Systems and Technologies", ...MSI_S1_COMMON, "Law and Information", "Virtual and Augmented Reality"));
+core(1, "S2", [
+  ["Business Analysis for Decision Making", "TSI", "Analysing business data and processes to support decisions."],
+  ["Information Technology-Based Organizational Development", "TSI", "Developing organisations through information technology."],
+  ["Management of Information Systems", "TSI"],
+  ["Organizational Performance Management", "G", "Measuring and managing organisational performance."],
+]);
+option("msi", 4, 1, "S2", msi("Automatic Software Modeling and Generation", "Computing Systems and Communications", "Decision Support Systems", "Information Systems and Technologies in Government", "Information Systems Auditing", "Initiation to Research in Information Systems and Technologies", "Urban Informatics"));
+option("msi", 5, 1, "S2", msi("Automatic Software Modeling and Generation", "Computing Systems and Communications", "Decision Support Systems", "Digital Games", "e-Business", "Financial Evaluation of Projects", "Information Systems and Technologies in Government", "Information Systems Auditing", "Initiation to Research in Information Systems and Technologies", "Leadership and Change Management", "Urban Informatics"));
+core(2, "S1", [
+  ["Research and Development in Information Systems and Technologies", "TSI"],
+  ["Trends and Impacts of Information Systems and Technologies", "TSI"],
+]);
+option("msi", 6, 2, "S1", msi("Digital Innovation", ...MSI_S1_COMMON, "Law and Information", "Virtual and Augmented Reality"));
+option("msi", 7, 2, "A", [
+  ["Dissertation", "TSI", DESC["Dissertation"], THESIS(30, "Proposed topic and preferred supervisor (if you have one).")],
+  ["Project Work", "TSI", DESC["Project Work"], THESIS(12, "Project idea, partner organisation (if any) and preferred supervisor.")],
+], 45);
+cur = P;
+
 // Demo professors (fictional). Replace with the department's real staff in the portal.
 const face = (id: string) => `https://images.unsplash.com/photo-${id}?auto=format&fit=facearea&facepad=2.5&w=256&h=256&q=70`;
 const PROFESSORS: Professor[] = [
@@ -246,7 +456,7 @@ const PROF_BY_COURSE: Record<string, string> = {
 for (const c of courses) c.professorId = PROF_BY_COURSE[c.name];
 
 // ───────────── Master's degrees (official information, 2026/2027 unless noted) ─────────────
-const SCHOOL_CONTACT = "School of Engineering, Azurém Campus, 4800-058 Guimarães, Portugal · Tel: +351 253510179 / 253510160 · cp@eng.uminho.pt · www.eng.uminho.pt";
+const SCHOOL_CONTACT = "Department of Information Systems, University of Minho · Azurém Campus, 4800-058 Guimarães, Portugal · www.dsi.uminho.pt";
 const DSI = "Department of Information Systems";
 
 const PROGRAMMES: Programme[] = [
@@ -264,7 +474,8 @@ const PROGRAMMES: Programme[] = [
     scientificArea: "Information Technologies and Systems",
     contacts: [
       { role: "Course Director", name: "Luís Gonzaga Mendes Magalhães", email: "lmagalhaes@dsi.uminho.pt", phone: "253510319" },
-      { role: "Academic Mobility Coordinator", name: "Ana Alice Rodrigues Pereira Baptista", email: "analice@dsi.uminho.pt", phone: "510310" },
+      { role: "Course Direction", name: "MEGSI Direction", email: "direcaomegsi@dsi.uminho.pt", phone: "(+351) 253 510 319" },
+      { role: "Academic Mobility Coordinator", name: "Ana Alice Rodrigues Pereira Baptista", email: "analice@dsi.uminho.pt", phone: "510319" },
     ],
     description:
       "The MEGSI program aims to provide advanced training for IT engineers and managers whose main professional functions combine IT, organizational, and management skills.\nIt also aims for MEGSI graduates to be familiar with the R&D process to keep up with the evolution of the field's body of knowledge and participate in its exploration and development, particularly in a context of evidence-based practices.\nMEGSI graduates should also demonstrate: a sense of responsibility and professional ethics; the ability to learn and adapt to new situations; analytical, synthetic, and critical thinking skills; creativity; self-confidence; attention to the evolution of IT and the opportunities for its application; a reflective attitude; and a leadership posture.\nProfessional roles in IT engineers and managers can be performed in any organization, regardless of its size (including small and medium-sized enterprises) or sector, as well as in management consulting and IT firms.",
@@ -299,15 +510,15 @@ const PROGRAMMES: Programme[] = [
     ects: 120,
     duration: "4 academic semesters",
     regime: "Mixed",
-    academicYear: "2025/2026",
+    academicYear: "2026/2027",
     location: "Azurém Campus, Guimarães",
     scientificArea: "Information Technologies and Systems",
     contacts: [
-      { role: "Course Director", name: "Teresa Susana Mendes Pereira Bernardino", email: "tpereira@dsi.uminho.pt", phone: "253510314" },
-      { role: "Academic Mobility Coordinator", name: "Isabel Maria Pinto Ramos", email: "iramos@dsi.uminho.pt", phone: "510317" },
+      { role: "Course Director", name: "Teresa Pereira", email: "tpereira@dsi.uminho.pt", phone: "253 510 319" },
+      { role: "Academic Mobility Coordinator", name: "Ana Alice Baptista", email: "analice@dsi.uminho.pt", phone: "510319" },
     ],
     description:
-      "The Master's Degree in Information Systems aims to train professionals capable of: understanding the role of information and information technologies and systems (ITS) in organizations and society; explaining the technological, organizational, political, social, and cultural reasons for the successful adoption and management of ITS; diagnosing problems associated with the use of ITS; defining ITS solutions to solve organizational or societal problems and take advantage of opportunities arising from market and societal changes.\nMasters in Information Systems should be able to contribute to the definition of the technological infrastructure supporting the business strategy, participate in innovation and organizational change processes in which ITS plays a central role, and manage the organization's ITS to support the business model within its objectives and constraints.",
+      "The Master Program in Information Systems (MSI) provides advanced specialization in the development, implementation and management of corporate information systems and emerging technologies.\nThe Master's Degree in Information Systems aims to train professionals capable of: understanding the role of information and information technologies and systems (ITS) in organizations and society; explaining the technological, organizational, political, social, and cultural reasons for the successful adoption and management of ITS; diagnosing problems associated with the use of ITS; defining ITS solutions to solve organizational or societal problems and take advantage of opportunities arising from market and societal changes.\nMasters in Information Systems should be able to contribute to the definition of the technological infrastructure supporting the business strategy, participate in innovation and organizational change processes in which ITS plays a central role, and manage the organization's ITS to support the business model within its objectives and constraints.",
     learningOutcomes: [
       "Improving organizational work and processes",
       "Exploring opportunities created by technological innovations",
@@ -329,8 +540,8 @@ const PROGRAMMES: Programme[] = [
   },
   {
     id: "mecd",
-    department: "Department of Production and Systems",
-    name: "Engineering and Data Science",
+    department: DSI,
+    name: "Data Engineering and Science",
     short: "MECD",
     degree: "Master's degree",
     ects: 120,
@@ -338,10 +549,14 @@ const PROGRAMMES: Programme[] = [
     regime: "Daytime",
     academicYear: "2026/2027",
     location: "Azurém Campus, Guimarães",
-    scientificArea: "Engineering and Data Science",
-    contacts: [{ role: "Course Director", name: "Lino António Antunes Fernandes Costa", email: "lac@dps.uminho.pt", phone: "604746" }],
+    scientificArea: "Engineering",
+    contacts: [
+      { role: "Course Director", name: "Lino António Antunes Fernandes Costa", email: "dir-mecd@eng.uminho.pt" },
+      { role: "Course Direction", name: "César Analide · Tiago Guimarães", email: "mecd@eng.uminho.pt" },
+      { role: "Secretariat", name: "Ana Rita Rodrigues", email: "mecd@eng.uminho.pt", phone: "(+351) 253 510 342" },
+    ],
     description:
-      "The Master's degree in Engineering and Data Science (MECD) provides second-cycle training in the scientific field of Engineering and Data Science at the University of Minho, continuing the first-cycle training in the same area with the Bachelor's degree in Data Science (LCD), which began operating in 2022/23.\nThe MECD aims to train professionals and researchers capable of integrating into the business and industrial sector in an emerging and highly sought-after application area, as well as teaching and research units in a scientific area of current relevance and future prominence.",
+      "The Master's degree in Data Engineering and Science (MECD) provides second-cycle training in the scientific field of Data Engineering and Science at the University of Minho, continuing the first-cycle training in the same area with the Bachelor's degree in Data Science (LCD), which began operating in 2022/23.\nThe MECD aims to train professionals and researchers capable of integrating into the business and industrial sector in an emerging and highly sought-after application area, as well as teaching and research units in a scientific area of current relevance and future prominence.",
     learningOutcomes: [
       "Understand advanced scientific knowledge associated with Engineering and Data Science (e.g. Data Engineering, Artificial Intelligence, Methodologies), as well as the legal issues of data collection, storage and processing",
       "Process and visualize data using information technologies to extract useful knowledge and support decision-making",
@@ -349,11 +564,15 @@ const PROGRAMMES: Programme[] = [
       "Apply data science methodologies for descriptive, predictive and prescriptive analyses",
       "Solve real-world problems involving advanced data processing and analysis (high volume and complexity)",
     ],
+    careers: [
+      "Data Engineer, Data Scientist, Machine Learning Engineer or Systems Analyst in the corporate and industrial sector.",
+      "Advanced R&D roles in academic teaching and research units.",
+    ],
   },
   {
     id: "meti",
     department: DSI,
-    name: "Telecommunications and Computer Engineering",
+    name: "Telecommunications and Informatics Engineering",
     short: "METI",
     degree: "Master's degree",
     ects: 120,
@@ -363,8 +582,8 @@ const PROGRAMMES: Programme[] = [
     location: "Azurém Campus, Guimarães",
     scientificArea: "Telecommunications Engineering",
     contacts: [
-      { role: "Course Director", name: "Maria João Mesquita Rodrigues Cunha Nicolau Pinto", email: "joao@dsi.uminho.pt", phone: "510317" },
-      { role: "Academic Mobility Coordinator", name: "Ana Alice Rodrigues Pereira Baptista", email: "analice@dsi.uminho.pt", phone: "510310" },
+      { role: "Course Director", name: "Adriano Jorge Cardoso Moreira", email: "adriano@dsi.uminho.pt", phone: "510305" },
+      { role: "Academic Mobility Coordinator", name: "António Luís Duarte Costa", email: "costa@di.uminho.pt", phone: "253604442" },
     ],
     description:
       "The general objectives of the Master's course are to provide a second-cycle education in Engineering with a specialization in Telecommunications and Informatics, complementing a first-cycle education in the same area.\nThe aim is to train masters who deeply understand telecommunications systems at their different levels of conceptualization and implementation, and who can specify, design, develop, implement, operate and maintain them.\nIt is a specialized profile with strong R&D, communication and scientific dissemination skills in network management and virtualization, communications and digital systems, access and core networks, network services and multimedia applications, network emulation and simulation, traffic routing, vehicular networks, mobile computing, IoT, RF system implementation, machine learning, information retrieval, knowledge representation and reasoning.",
@@ -388,22 +607,59 @@ const PROGRAMMES: Programme[] = [
       "R&D companies — research and development of new communication systems",
     ],
   },
+  {
+    id: "mgpe",
+    department: DSI,
+    name: "Engineering Project Management",
+    short: "MGPE",
+    degree: "Master's degree",
+    ects: 120,
+    duration: "4 academic semesters",
+    regime: "Mixed",
+    academicYear: "2026/2027",
+    location: "Azurém Campus, Guimarães",
+    scientificArea: "Engineering",
+    contacts: [
+      { role: "Course Director", name: "Pedro Ribeiro" },
+      { role: "Secretariat", name: "Carina Freitas", email: "mgpe@eng.uminho.pt", phone: "(+351) 253 510 219" },
+    ],
+    description:
+      "The Master's in Engineering Project Management (MGPE) trains professionals of various profiles to manage technology development and implementation processes within highly complex engineering projects.\nIt combines scientific and technological knowledge with the ability to plan, control and manage projects economically and to adequate standards, with specialization in three project areas: Construction (building and civil engineering works), Industrial Engineering (manufacturing industry and services) and Information Systems (information technology and information systems).\nThe first year covers general project management training and the specialization tracks; the second year is dedicated to seminars and the dissertation.",
+    learningOutcomes: [
+      "Define the preliminary plan of an engineering project",
+      "Plan and implement project execution across scope, time, cost, quality, resources, communication, risk, changes and acquisitions",
+      "Implement the defined global management plan",
+      "Organize, control and lead human resources, equipment and materials within an engineering project",
+      "Implement the stakeholder management plan",
+      "Close the project, evaluating whether its objectives were met and producing the formal documentation of its completion",
+    ],
+    careers: [
+      "Any productive sector that works through projects or uses project structures to develop new products, implement new technologies or introduce new ways of working.",
+      "Construction — building and civil engineering works.",
+      "Industrial manufacturing and services.",
+      "Information systems and information technology.",
+    ],
+  },
 ];
 
 export function createSeed(now = new Date()): DB {
   const t = now.getTime();
   const at = (offsetDays: number) => new Date(t + offsetDays * DAY).toISOString();
   const users: User[] = [
-    { id: "u_admin", username: "admin", password: "option", name: "Engineering Management Team", email: "support@eng.option.demo", role: "admin", title: "School of Engineering" },
-    { id: "u_tech", username: "tech", password: "option", name: "Rui Barbosa", email: "rbarbosa@eng.option.demo", role: "admin", title: "Technical support, School of Engineering", photo: face("1500648767791-00dcc994a43e") },
+    { id: "u_admin", username: "admin", password: "option", name: "DSI Management Team", email: "support@dsi.option.demo", role: "admin", title: "Department of Information Systems" },
+    { id: "u_tech", username: "tech", password: "option", name: "Rui Barbosa", email: "rbarbosa@dsi.option.demo", role: "admin", title: "Technical support, Department of Information Systems", photo: face("1500648767791-00dcc994a43e") },
     {
       id: "u_assistant", username: "assistant", password: "option", name: "Programme Assistant", email: "assistant@option.demo", role: "assistant", programmeId: P,
       title: "Programme assistant", bio: "Helps with schedules, lists and student questions.", invitedAt: at(-60),
     },
     {
-      id: "u_director", username: "director", password: "option", name: "Course Director", email: "director@option.demo", role: "director", programmeId: P,
+      id: "u_director", username: "director", password: "option", name: "Course Director", email: "director@option.demo", role: "director", programmeId: P, professorId: "p1",
       title: "Programme Director, MEGSI", photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2.5&w=256&h=256&q=70",
       bio: "Reviews Dissertation and Project Work requests.", about: "Contact me here for anything about option selection — no need to email.", invitedAt: at(-90),
+    },
+    {
+      id: "u_professor", username: "professor", password: "option", name: "Joana Lima", email: "jlima@dept.option.demo", role: "professor", programmeId: P,
+      professorId: "p5", title: "Prof.", invitedAt: at(-30),
     },
     {
       id: "u_demo", username: "pg50001", password: "option", name: "Moke (demo)", email: "pg50001@option.demo", role: "student", year: 2, programmeId: P,
@@ -508,8 +764,8 @@ export function createSeed(now = new Date()): DB {
   ];
 
   return {
-    version: 6,
-    school: "School of Engineering",
+    version: 9,
+    school: "Department of Information Systems",
     programmes: [megsi, ...PROGRAMMES.slice(1).map((p) => ({ ...p, createdAt: at(-30) }))],
     schoolContact: SCHOOL_CONTACT,
     programme: megsi,
@@ -520,11 +776,24 @@ export function createSeed(now = new Date()): DB {
     rounds: [
       { id: "r1", programmeId: P, year: 1, label: "Year 1 option selection", opensAt: at(-30), closesAt: at(-16), emailSentAt: at(-30) },
       { id: "r2", programmeId: P, year: 2, label: "Year 2 option selection", opensAt: at(-1), closesAt: at(13) },
+      // The other Master's: Year 1 opens next week; Year 2 is open where the plan has Year 2 options.
+      ...PROGRAMMES.slice(1).flatMap((p) =>
+        ([1, 2] as Year[])
+          .filter((y) => groups.some((g) => g.programmeId === p.id && g.year === y))
+          .map((y) => ({ id: `r_${p.id}_${y}`, programmeId: p.id, year: y, label: `Year ${y} option selection`, opensAt: y === 1 ? at(7) : at(-1), closesAt: y === 1 ? at(21) : at(13) })),
+      ),
     ],
     emails: [],
     professors: PROFESSORS.map((p) => ({ ...p })),
     events,
     announcements,
     tickets,
+    // A professor waiting for approval, so the portal shows how requests look.
+    accessRequests: [
+      {
+        id: "req_demo", name: "Marta Oliveira", email: "moliveira@dsi.uminho.pt", programmeId: "msi", status: "pending", createdAt: at(-0.1),
+        courseIds: courses.filter((x) => x.programmeId === "msi" && ["Databases for Information Systems", "e-Business"].includes(x.name)).map((x) => x.id),
+      },
+    ],
   };
 }

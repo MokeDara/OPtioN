@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
-// School of Engineering portal is a private link: keep it out of search engines.
+// DSI portal is a private link: keep it out of search engines.
 export const metadata: Metadata = {
-  title: "OPtioN! · School of Engineering portal",
+  title: "OPtioN! · DSI portal",
   robots: { index: false, follow: false },
 };
 
