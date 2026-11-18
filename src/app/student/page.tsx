@@ -112,7 +112,7 @@ export default function StudentPage() {
   return (
     <>
       <AppHeader user={user}>
-        <span className="hidden rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold md:inline">
+        <span className="hidden truncate whitespace-nowrap rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold lg:inline">
           {t(term.label)} · {db.programme.short}
         </span>
       </AppHeader>

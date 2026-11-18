@@ -499,8 +499,18 @@ export function updateProfile(db: DB, user: User): Result {
   if (prev.role === "student" && prev.year !== user.year && db.selections.some((s) => s.studentId === user.id && s.status !== "rejected" && db.courses.find((c) => c.id === s.courseId)?.year === prev.year))
     return { ok: false, error: `You have Year ${prev.year} choices — drop them before changing your year.` };
   // role, username and password can't be changed here
-  const next: User = { ...user, role: prev.role, username: prev.username, password: prev.password };
+  // staff titles ("Programme Director, MEGSI") are set by the DSI team in the portal
+  const next: User = { ...user, role: prev.role, username: prev.username, password: prev.password, title: prev.role === "student" ? user.title : prev.title };
   return { ok: true, db: { ...db, users: db.users.map((u) => (u.id === user.id ? next : u)) }, message: "Profile saved." };
+}
+
+/** DSI portal: the title shown under a staff member's name. */
+export function setStaffTitle(db: DB, userId: string, title: string): Result {
+  const u = db.users.find((x) => x.id === userId);
+  if (!u || u.role === "student") return { ok: false, error: "Can't change this account." };
+  const next = title.trim() || undefined;
+  if (next === u.title) return { ok: true, db };
+  return { ok: true, db: { ...db, users: db.users.map((x) => (x.id === userId ? { ...x, title: next } : x)) }, message: `Title updated for ${u.name}.` };
 }
 
 // ───────────────────────── sign-in ─────────────────────────
@@ -931,4 +941,11 @@ export function professorView(db: DB, professorId?: string) {
 export function professorsTeaching(db: DB): Professor[] {
   const ids = new Set(db.courses.map((c) => c.professorId).filter(Boolean));
   return db.professors.filter((p) => ids.has(p.id));
+}
+
+/** The curricular units a professor teaches. The same unit in several Opção slots of one Master's counts once. */
+export function professorUnits(db: DB, professorId: string, exceptCourse?: Course): string[] {
+  const key = (c: Course) => `${c.programmeId}::${c.name}`;
+  const skip = exceptCourse ? key(exceptCourse) : null;
+  return [...new Set(db.courses.filter((c) => c.professorId === professorId && key(c) !== skip).map((c) => `${c.name} (${db.programmes.find((p) => p.id === c.programmeId)?.short ?? c.programmeId})`))];
 }

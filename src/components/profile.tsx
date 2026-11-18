@@ -153,8 +153,9 @@ export function ProfileFields({ u, set, onError }: { u: User; set: (patch: Parti
           </div>
         ) : (
           <div>
-            <label className="label" htmlFor="pf-title">Title / role</label>
-            <input id="pf-title" className="input" value={u.title ?? ""} onChange={(e) => set({ title: e.target.value || undefined })} placeholder="Associate Professor" />
+            <p className="label">Title / role</p>
+            <p className="input cursor-not-allowed bg-paper text-ink/60" title="Set by the DSI team in the portal">{u.title ?? "—"}</p>
+            <p className="mt-1 text-xs text-ink/45">Set by the DSI team.</p>
           </div>
         )}
         <div>

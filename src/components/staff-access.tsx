@@ -34,6 +34,8 @@ export function RequestAccessForm() {
   const [programmeId, setProgrammeId] = useState("");
   const [courseIds, setCourseIds] = useState<string[]>([]);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  // One professor ↔ one course; ticking "more than one" allows several.
+  const [several, setSeveral] = useState(false);
 
   const units = school.courses
     .filter((c) => c.programmeId === programmeId)
@@ -46,6 +48,7 @@ export function RequestAccessForm() {
   };
   const toggle = (id: string) => {
     const ids = sameName(id);
+    if (!several) return setCourseIds(ids);
     setCourseIds((cur) => (cur.includes(id) ? cur.filter((x) => !ids.includes(x)) : [...cur, ...ids]));
   };
 
@@ -119,13 +122,13 @@ export function RequestAccessForm() {
         {programmeId && (
           <fieldset>
             <legend className="label">
-              {t("Curricular units you teach")} <span className="font-normal text-ink/45">{t("(optional)")}</span>
+              {t(several ? "Curricular units you teach" : "Curricular unit you teach")} <span className="font-normal text-ink/45">{t("(optional)")}</span>
             </legend>
             {units.length ? (
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-line p-2">
                 {units.map((c) => (
                   <label key={c.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-paper">
-                    <input type="checkbox" className="mt-0.5 accent-brand" checked={courseIds.includes(c.id)} onChange={() => toggle(c.id)} />
+                    <input type={several ? "checkbox" : "radio"} name="ra-unit" className="mt-0.5 accent-brand" checked={courseIds.includes(c.id)} onChange={() => toggle(c.id)} />
                     <span className="min-w-0 flex-1">
                       {c.name}
                       <span className="ml-1 text-xs text-ink/45">
@@ -138,6 +141,20 @@ export function RequestAccessForm() {
               </div>
             ) : (
               <p className="text-sm text-ink/50">{t("No curricular units listed for this Master's yet.")}</p>
+            )}
+            {units.length > 1 && (
+              <label className="mt-2 flex items-center gap-2 text-sm text-ink/70">
+                <input
+                  type="checkbox"
+                  className="accent-brand"
+                  checked={several}
+                  onChange={(e) => {
+                    setSeveral(e.target.checked);
+                    if (!e.target.checked) setCourseIds((cur) => (cur.length ? sameName(cur[0]) : cur));
+                  }}
+                />
+                {t("I teach more than one course")}
+              </label>
             )}
           </fieldset>
         )}

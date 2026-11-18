@@ -453,7 +453,17 @@ const PROF_BY_COURSE: Record<string, string> = {
   Dissertation: "p4", "Project Work": "p4", "Project Management in Information Systems and Technologies": "p8",
   "Research and Development in Information Systems and Technologies": "p4", "Trends and Impacts of Information Systems and Technologies": "p5",
 };
-for (const c of courses) c.professorId = PROF_BY_COURSE[c.name];
+// One professor ↔ one curricular unit: each professor gets the first MEGSI unit listed for them
+// (the same unit offered in several Opção slots counts as one). Other units wait for the DSI team to assign them.
+{
+  const unitOf = new Map<string, string>(); // professorId → unit name
+  for (const c of courses) {
+    const pid = PROF_BY_COURSE[c.name];
+    if (c.programmeId !== P || !pid) continue;
+    if (!unitOf.has(pid) && ![...unitOf.values()].includes(c.name)) unitOf.set(pid, c.name);
+    if (unitOf.get(pid) === c.name) c.professorId = pid;
+  }
+}
 
 // ───────────── Master's degrees (official information, 2026/2027 unless noted) ─────────────
 const SCHOOL_CONTACT = "Department of Information Systems, University of Minho · Azurém Campus, 4800-058 Guimarães, Portugal · www.dsi.uminho.pt";
@@ -771,7 +781,7 @@ export function createSeed(now = new Date()): DB {
   ];
 
   return {
-    version: 10,
+    version: 11,
     school: "Department of Information Systems",
     programmes: [megsi, ...PROGRAMMES.slice(1).map((p) => ({ ...p, createdAt: at(-30) }))],
     schoolContact: SCHOOL_CONTACT,

@@ -11,7 +11,7 @@ import { STATUS, StatusChip, TOPICS, Thread } from "@/components/support";
 import { ProgrammeInfo } from "@/components/programme-info";
 import { useStore } from "@/lib/store";
 import { approveAccess, declineAccess } from "@/lib/logic";
-import { activeSelections, assignStaff, scope, createProgramme, generalListCsv, setStaffRole, createStaff, directorOf, linkStaffProfessor, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
+import { activeSelections, assignStaff, scope, createProgramme, generalListCsv, setStaffRole, setStaffTitle, createStaff, directorOf, linkStaffProfessor, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
 import { STAFF_ROLES, type Programme, type ProgrammeContact, type TicketStatus, type User, type Year } from "@/lib/types";
 
 type Tab = "programmes" | "access" | "students" | "courses" | "rounds" | "professors" | "support" | "mail";
@@ -405,6 +405,15 @@ function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole })
                 {u.username} · {u.email}
                 {u.invitedAt && ` · credentials sent ${fmtDate(u.invitedAt)}`}
               </p>
+              <input
+                key={u.title ?? ""}
+                className="input mt-2 max-w-xs py-1 text-sm"
+                defaultValue={u.title ?? ""}
+                placeholder="Title, e.g. Programme Director, MEGSI"
+                aria-label={`Title shown for ${u.name}`}
+                onBlur={(e) => e.target.value.trim() !== (u.title ?? "") && act((d) => setStaffTitle(d, u.id, e.target.value))}
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              />
             </div>
             {u.role !== "admin" && (
               <select

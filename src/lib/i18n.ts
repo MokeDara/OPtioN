@@ -161,6 +161,11 @@ export const PT: Record<string, string> = {
   "Show only my choice": "Mostrar só a minha escolha",
   "See all": "Ver todas as",
 
+  "Curricular unit you teach": "Unidade curricular que leciona",
+  "I teach more than one course": "Leciono mais do que uma unidade",
+  "Switch to My Courses (professor view)": "Mudar para As minhas unidades (vista de docente)",
+  "Switch to Programme Management (director view)": "Mudar para Gestão do Mestrado (vista de diretor)",
+
   // footer
   "Quick Links": "Links rápidos",
   People: "Pessoas",

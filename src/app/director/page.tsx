@@ -34,7 +34,7 @@ export default function DirectorPage() {
   return (
     <>
       <AppHeader user={user}>
-        <span className="hidden rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold md:inline">{db.programme.short}</span>
+        <span className="hidden whitespace-nowrap rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold lg:inline">{db.programme.short}</span>
       </AppHeader>
       <main className="mx-auto max-w-6xl px-5 py-8">
         {/* Year switch + stats */}

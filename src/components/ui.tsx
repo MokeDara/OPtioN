@@ -14,7 +14,7 @@ export const DEPARTMENT_LINE = "Department of Information Systems | University o
 
 export function Logo({ className = "", inverted = false }: { className?: string; inverted?: boolean }) {
   return (
-    <span className={`font-display text-2xl font-bold tracking-tight ${className}`}>
+    <span className={`whitespace-nowrap font-display text-2xl font-bold tracking-tight ${className}`}>
       OPtioN
       <span className={`ml-0.5 inline-block -rotate-6 rounded-md px-1.5 ${inverted ? "bg-white text-brand" : "bg-brand text-white"}`}>!</span>
     </span>
@@ -200,29 +200,26 @@ const NAV: Record<Role, { href: string; label: string }[]> = {
   admin: [{ href: "/portal", label: "Portal" }],
 };
 
-/** "My Courses (Professor view) | Programme Management (Director view)" in the header. */
+/** One button, like the day/night switch: flips between My Courses (professor view) and Programme Management (director view). */
 function WorkspaceSwitch({ view }: { view: StaffView }) {
   const t = useT();
   const router = useRouter();
-  const go = (v: StaffView) => {
-    saveView(v);
-    router.push(v === "courses" ? "/my-courses" : "/director");
-  };
-  const btn = (v: StaffView, label: string, Icon: typeof BookOpen, hint: string) => (
-    <button
-      onClick={() => go(v)}
-      aria-pressed={view === v}
-      title={t(hint)}
-      className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition ${view === v ? "bg-white text-brand" : "text-white/80 hover:bg-white/10"}`}
-    >
-      <Icon className="size-3.5" /> {t(label)}
-    </button>
-  );
+  const next: StaffView = view === "courses" ? "programme" : "courses";
+  const label = next === "courses" ? t("Switch to My Courses (professor view)") : t("Switch to Programme Management (director view)");
+  const Icon = view === "courses" ? BookOpen : LayoutDashboard;
   return (
-    <div className="flex w-fit gap-0.5 rounded-xl bg-white/15 p-0.5" role="group" aria-label={t("Workspace")}>
-      {btn("courses", "My Courses", BookOpen, "Professor view")}
-      {btn("programme", "Programme Management", LayoutDashboard, "Director view")}
-    </div>
+    <button
+      type="button"
+      onClick={() => {
+        saveView(next);
+        router.push(next === "courses" ? "/my-courses" : "/director");
+      }}
+      className="grid size-8 place-items-center rounded-lg border border-white/25 bg-white/10 text-white/75 transition hover:text-white"
+      aria-label={label}
+      title={label}
+    >
+      <Icon className="size-4" />
+    </button>
   );
 }
 
@@ -237,7 +234,7 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
   return (
     <header className="sticky top-0 z-30 bg-brand text-white">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-5">
-        <Link href={homeForUser(user)}>
+        <Link href={homeForUser(user)} className="shrink-0">
           <Logo className="text-white" inverted />
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
@@ -245,29 +242,23 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
             <Link
               key={n.href}
               href={n.href}
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${path === n.href ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"}`}
+              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition ${path === n.href ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"}`}
             >
               {t(n.label)}
             </Link>
           ))}
         </nav>
-        <div className="flex flex-1 items-center gap-3">
-          {dual && (
-            <span className="hidden xl:block">
-              <WorkspaceSwitch view={view} />
-            </span>
-          )}
-          {children}
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-3">{children}</div>
+        <div className="flex shrink-0 items-center gap-2">
+          {dual && <WorkspaceSwitch view={view} />}
           <PrefsToggle onBrand className="mr-1" />
           {user.role === "student" && <Inbox user={user} />}
           {user.role !== "admin" ? (
             <Link href="/profile" className="flex items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 hover:bg-white/10" title="My profile">
               <Avatar user={user} size={34} className="ring-2 ring-white/40" />
-              <span className="hidden text-left lg:block">
-                <span className="block text-sm font-semibold leading-tight">{user.name}</span>
-                <span className="block text-xs text-white/60">{user.role === "student" ? `${user.username} · ${t(studentTerm(user, now).label)}` : t(ROLE_LABEL[user.role])}</span>
+              <span className="hidden max-w-[11rem] text-left xl:block">
+                <span className="block truncate whitespace-nowrap text-sm font-semibold leading-tight">{user.name}</span>
+                <span className="block truncate whitespace-nowrap text-xs text-white/60">{user.role === "student" ? `${user.username} · ${t(studentTerm(user, now).label)}` : t(ROLE_LABEL[user.role])}</span>
               </span>
             </Link>
           ) : (
@@ -286,11 +277,6 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
           </button>
         </div>
       </div>
-      {dual && (
-        <div className="mx-auto max-w-6xl px-5 pb-2 xl:hidden">
-          <WorkspaceSwitch view={view} />
-        </div>
-      )}
       {/* mobile nav */}
       <nav className="flex gap-1 overflow-x-auto px-5 pb-2 md:hidden">
         {nav.map((n) => (

@@ -69,17 +69,18 @@ export const useT = () => usePrefs().t;
 export function PrefsToggle({ onBrand = false, className = "" }: { onBrand?: boolean; className?: string }) {
   const { lang, setLang, theme, setTheme, t } = usePrefs();
   const wrap = onBrand ? "border-white/25 bg-white/10" : "border-line bg-white/80 backdrop-blur";
-  const on = onBrand ? "bg-white text-brand" : "bg-ink text-paper";
   const off = onBrand ? "text-white/75 hover:text-white" : "text-ink/55 hover:text-ink";
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
-      <div className={`flex rounded-lg border p-0.5 text-xs font-bold ${wrap}`} role="group" aria-label={t("Language")}>
-        {(["pt", "en"] as Lang[]).map((l) => (
-          <button key={l} type="button" onClick={() => setLang(l)} aria-pressed={lang === l} className={`rounded-md px-2 py-1 uppercase transition ${lang === l ? on : off}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        onClick={() => setLang(lang === "pt" ? "en" : "pt")}
+        className={`grid size-8 place-items-center rounded-lg border text-xs font-bold uppercase transition ${wrap} ${off}`}
+        aria-label={`${t("Language")}: ${lang.toUpperCase()}`}
+        title={lang === "pt" ? "Switch to English" : "Mudar para português"}
+      >
+        {lang}
+      </button>
       <button
         type="button"
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

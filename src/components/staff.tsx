@@ -6,7 +6,7 @@ import { CourseDetail, CourseImage } from "@/components/course-detail";
 import { Avatar, ImageInput, ProfileCard } from "@/components/profile";
 import { useStore } from "@/lib/store";
 import { AREAS } from "@/lib/seed";
-import { courseListCsv, lastListSent, pendingCount, sendCourseList, setCourseType, uid } from "@/lib/logic";
+import { courseListCsv, lastListSent, pendingCount, professorUnits, sendCourseList, setCourseType, uid } from "@/lib/logic";
 import type { Course, Semester, User, Year } from "@/lib/types";
 
 export function download(filename: string, text: string) {
@@ -204,7 +204,7 @@ export function Courses({ year }: { year: Year }) {
 const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 
 function CourseEditor({ course, onClose }: { course: Course; onClose: () => void }) {
-  const { saveCourse, db } = useStore();
+  const { saveCourse, db, school } = useStore();
   const [c, setC] = useState(course);
   const [outcomes, setOutcomes] = useState((course.details.outcomes ?? []).join("\n"));
   const [program, setProgram] = useState((course.details.program ?? []).map((p) => `${p.title}: ${p.text}`).join("\n"));
@@ -224,6 +224,10 @@ function CourseEditor({ course, onClose }: { course: Course; onClose: () => void
         return i > 0 ? { title: l.slice(0, i).trim(), text: l.slice(i + 1).trim() } : { title: l, text: "" };
       }),
     };
+    // One professor per course, unless the DSI team confirms an exception.
+    const other = c.professorId && c.professorId !== course.professorId ? professorUnits(school, c.professorId, c) : [];
+    const prof = db.professors.find((p) => p.id === c.professorId);
+    if (other.length && !confirm(`${prof?.name} already teaches ${other.join(", ")}. Each professor normally teaches one course — assign ${c.name || "this course"} as well?`)) return;
     if (saveCourse({ ...c, details })) onClose();
   };
 
@@ -298,11 +302,15 @@ function CourseEditor({ course, onClose }: { course: Course; onClose: () => void
               {db.professors
                 .slice()
                 .sort((a, b) => a.name.localeCompare(b.name))
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title} {p.name}
-                  </option>
-                ))}
+                .map((p) => {
+                  const teaches = professorUnits(school, p.id, c);
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.title} {p.name}
+                      {teaches.length ? ` — teaches ${teaches[0]}${teaches.length > 1 ? ` +${teaches.length - 1}` : ""}` : " — free"}
+                    </option>
+                  );
+                })}
             </select>
           </div>
           <div className="sm:col-span-2">
