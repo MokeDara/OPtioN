@@ -14,7 +14,9 @@ export interface User {
   role: Role;
   photo?: string; // URL or resized data URL
   // Profile
-  programmeId?: string; // students and programme staff; unset for the School team
+  programmeId?: string; // students: their Master's. Directors/assistants: the Master's they direct/assist
+  /** Staff: other Master's they may open (granted in the portal). They pick one after signing in. */
+  programmeIds?: string[];
   year?: Year; // students: current year of the master's
   title?: string; // directors: e.g. "Associate Professor"
   bio?: string; // one-liner
@@ -116,7 +118,8 @@ export interface OptionGroup {
   year: Year;
   semester: Semester;
   name: string; // e.g. "Opção 1"
-  ects: number;
+  ects: number; // total ECTS students take in this slot
+  choose?: number; // how many courses students pick in this slot (default 1)
 }
 
 export interface CourseDetails {

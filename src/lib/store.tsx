@@ -8,9 +8,10 @@ import { createSeed } from "./seed";
 import type { Course, DB, Role, Round, User } from "./types";
 
 
-const DB_KEY = "option-demo-db-v6";
-const DB_VERSION = 6;
+const DB_KEY = "option-demo-db-v7";
+const DB_VERSION = 7;
 const SESSION_KEY = "option-session";
+const PROGRAMME_KEY = "option-programme";
 
 type Toast = { id: number; kind: "ok" | "error"; text: string };
 
@@ -21,6 +22,8 @@ interface Store {
   school: DB;
   viewProgramme: string;
   setViewProgramme: (id: string) => void;
+  /** Staff must pick a Master's after signing in; false until they do. */
+  programmeChosen: boolean;
   now: Date;
   user: User | null;
   ready: boolean;
@@ -76,6 +79,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     commit(initial);
     try {
       setUserId(sessionStorage.getItem(SESSION_KEY));
+      setViewProgrammeState(sessionStorage.getItem(PROGRAMME_KEY) ?? "");
     } catch {}
   }, [commit]);
 
@@ -132,9 +136,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [commit, toast],
   );
 
-  const [viewProgramme, setViewProgramme] = useState("");
+  const [viewProgramme, setViewProgrammeState] = useState("");
+  const setViewProgramme = useCallback((id: string) => {
+    setViewProgrammeState(id);
+    try {
+      if (id) sessionStorage.setItem(PROGRAMME_KEY, id);
+      else sessionStorage.removeItem(PROGRAMME_KEY);
+    } catch {}
+  }, []);
   const user = useMemo(() => db?.users.find((u) => u.id === userId) ?? null, [db, userId]);
-  const pid = user?.programmeId ?? (user?.role === "admin" ? viewProgramme || db?.programmes[0]?.id : undefined);
+  const pid = useMemo(() => {
+    if (!db || !user) return undefined;
+    if (user.role === "student") return user.programmeId;
+    const open = L.staffProgrammes(db, user);
+    if (open.some((p) => p.id === viewProgramme)) return viewProgramme;
+    if (user.role === "admin") return db.programmes[0]?.id;
+    return open.length === 1 ? open[0].id : undefined; // one Master's: no need to choose
+  }, [db, user, viewProgramme]);
   const scoped = useMemo(() => (db ? L.scope(db, pid) : null), [db, pid]);
 
   const value: Store | null = db && scoped
@@ -143,6 +161,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         school: db,
         viewProgramme: pid ?? db.programmes[0]?.id ?? "",
         setViewProgramme,
+        programmeChosen: !!pid,
         now,
         user,
         ready: true,
@@ -151,6 +170,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const r = L.authenticate(db, username, password, roles);
           if (!r.ok) return r.error;
           setUserId(r.user.id);
+          setViewProgramme("");
           try {
             sessionStorage.setItem(SESSION_KEY, r.user.id);
           } catch {}
@@ -175,6 +195,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         saveProfile: (u) => run((d) => L.updateProfile(d, u)),
         logout: () => {
           setUserId(null);
+          setViewProgramme("");
           try {
             sessionStorage.removeItem(SESSION_KEY);
           } catch {}

@@ -397,11 +397,11 @@ export function createSeed(now = new Date()): DB {
     { id: "u_admin", username: "admin", password: "option", name: "Engineering Management Team", email: "support@eng.option.demo", role: "admin", title: "School of Engineering" },
     { id: "u_tech", username: "tech", password: "option", name: "Rui Barbosa", email: "rbarbosa@eng.option.demo", role: "admin", title: "Technical support, School of Engineering", photo: face("1500648767791-00dcc994a43e") },
     {
-      id: "u_assistant", username: "assistant", password: "option", name: "Programme Assistant", email: "assistant@option.demo", role: "assistant", programmeId: P,
+      id: "u_assistant", username: "assistant", password: "option", name: "Programme Assistant", email: "assistant@option.demo", role: "assistant", programmeId: P, programmeIds: ["msi"],
       title: "Programme assistant", bio: "Helps with schedules, lists and student questions.", invitedAt: at(-60),
     },
     {
-      id: "u_director", username: "director", password: "option", name: "Course Director", email: "director@option.demo", role: "director", programmeId: P,
+      id: "u_director", username: "director", password: "option", name: "Course Director", email: "director@option.demo", role: "director", programmeId: P, programmeIds: ["msi", "mecd", "meti"],
       title: "Programme Director, MEGSI", photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2.5&w=256&h=256&q=70",
       bio: "Reviews Dissertation and Project Work requests.", about: "Contact me here for anything about option selection — no need to email.", invitedAt: at(-90),
     },
@@ -508,7 +508,7 @@ export function createSeed(now = new Date()): DB {
   ];
 
   return {
-    version: 6,
+    version: 7,
     school: "School of Engineering",
     programmes: [megsi, ...PROGRAMMES.slice(1).map((p) => ({ ...p, createdAt: at(-30) }))],
     schoolContact: SCHOOL_CONTACT,
@@ -520,6 +520,11 @@ export function createSeed(now = new Date()): DB {
     rounds: [
       { id: "r1", programmeId: P, year: 1, label: "Year 1 option selection", opensAt: at(-30), closesAt: at(-16), emailSentAt: at(-30) },
       { id: "r2", programmeId: P, year: 2, label: "Year 2 option selection", opensAt: at(-1), closesAt: at(13) },
+      // The other Master's have their windows later in the year (dates are placeholders the director can change).
+      ...["msi", "mecd", "meti"].flatMap((pid, i) => [
+        { id: `${pid}-r1`, programmeId: pid, year: 1 as Year, label: "Year 1 option selection", opensAt: at(20 + i * 7), closesAt: at(34 + i * 7) },
+        { id: `${pid}-r2`, programmeId: pid, year: 2 as Year, label: "Year 2 option selection", opensAt: at(40 + i * 7), closesAt: at(54 + i * 7) },
+      ]),
     ],
     emails: [],
     professors: PROFESSORS.map((p) => ({ ...p })),

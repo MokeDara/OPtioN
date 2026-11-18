@@ -162,7 +162,7 @@ export function Courses({ year }: { year: Year }) {
           <section key={g.id}>
             <div className="mb-3 flex items-end justify-between">
               <div>
-                <h3 className="font-display text-lg font-bold">{g.name} <span className="font-normal text-ink/50">· {g.semester === "A" ? "Annual" : g.semester} · {g.ects} ECTS</span></h3>
+                <h3 className="font-display text-lg font-bold">{g.name} <span className="font-normal text-ink/50">· {g.semester === "A" ? "Annual" : g.semester} · choose {g.choose ?? 1} · {g.ects} ECTS</span></h3>
                 <p className="text-sm text-ink/60">{list.length} options. Click a row to see who&apos;s enrolled.</p>
               </div>
               <button className="btn-primary" onClick={() => setEditing({ ...blank(db.programme.id, year, g.id), semester: g.semester, ects: g.ects })}>

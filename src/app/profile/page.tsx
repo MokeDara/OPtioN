@@ -68,7 +68,7 @@ export default function ProfilePage() {
           <ProfileCard db={db} user={user} showPrivate />
         )}
 
-        {user.programmeId && (
+        {user.role === "student" && user.programmeId && (
           <div className="mt-6">
             <ProgrammeInfo p={db.programme} schoolContact={db.schoolContact} />
           </div>

@@ -5,10 +5,11 @@ import { AppHeader, Countdown, Empty, RoundPill, SeatMeter, fmtDate, useRequireR
 import { Avatar } from "@/components/profile";
 import { Courses, ProfileModal, download } from "@/components/staff";
 import { useStore } from "@/lib/store";
+import { deleteGroup, ruleSummary, saveGroup } from "@/lib/logic";
 import { courseListCsv, ectsFor, generalList, generalListCsv, incompleteStudents, pendingCount, requiredEcts, roundState, seatsLeft, seatsTaken, students, uid } from "@/lib/logic";
-import type { Course, Round, Semester, User, Year } from "@/lib/types";
+import type { Course, OptionGroup, Round, Semester, User, Year } from "@/lib/types";
 
-type Tab = "requests" | "courses" | "rounds" | "students";
+type Tab = "requests" | "rules" | "courses" | "rounds" | "students";
 
 export default function DirectorPage() {
   const user = useRequireRole(["director", "assistant"]);
@@ -18,7 +19,9 @@ export default function DirectorPage() {
   if (!user) return null;
 
   const pendingTotal = db.selections.filter((s) => s.status === "pending").length;
-  const round = db.rounds.find((r) => r.year === year)!;
+  const round = db.rounds.find((r) => r.year === year);
+  const rules = ruleSummary(db, db.programme.id);
+  const noRules = rules.every((r) => r.slots.length === 0);
   const yearCourses = db.courses.filter((c) => c.year === year && c.groupId);
   const seatsUsed = yearCourses.reduce((n, c) => n + seatsTaken(db, c.id), 0);
   const seatsAll = yearCourses.reduce((n, c) => n + c.capacity, 0);
@@ -26,6 +29,7 @@ export default function DirectorPage() {
 
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: "requests", label: "Approval requests", badge: pendingTotal },
+    { id: "rules", label: "Option rules" },
     { id: "courses", label: "Courses" },
     { id: "rounds", label: "Selection rounds" },
     { id: "students", label: "Student list" },
@@ -33,10 +37,35 @@ export default function DirectorPage() {
 
   return (
     <>
-      <AppHeader user={user}>
-        <span className="hidden rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold md:inline">{db.programme.short}</span>
-      </AppHeader>
+      <AppHeader user={user} />
       <main className="mx-auto max-w-6xl px-5 py-8">
+        {/* Which Master's + its option rules */}
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand">
+              {db.programme.department}
+              {db.programme.academicYear && ` · ${db.programme.academicYear}`}
+            </p>
+            <h1 className="font-display text-3xl font-bold">
+              {db.programme.short} <span className="font-normal text-ink/50">· {db.programme.name}</span>
+            </h1>
+          </div>
+        </div>
+        <button
+          onClick={() => setTab("rules")}
+          className={`mb-6 flex w-full flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border p-4 text-left text-sm transition hover:shadow-md ${
+            noRules ? "border-amber-300 bg-amber-50" : "border-line bg-white"
+          }`}
+        >
+          <span className="font-semibold">{noRules ? "Set up the option rules for this Master's →" : "Option rules"}</span>
+          {!noRules &&
+            rules.map((r) => (
+              <span key={r.year} className="text-ink/70">
+                <b className="text-ink">Year {r.year}:</b>{" "}
+                {r.slots.length ? `students choose ${r.courses} option${r.courses === 1 ? "" : "s"} · ${r.ects} ECTS` : "no options"}
+              </span>
+            ))}
+        </button>
         {/* Year switch + stats */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -51,8 +80,8 @@ export default function DirectorPage() {
                 </button>
               ))}
             </div>
-            <RoundPill round={round} />
-            {roundState(round, now) === "open" && (
+            {round && <RoundPill round={round} />}
+            {round && roundState(round, now) === "open" && (
               <span className="text-sm text-ink/60">
                 closes in <b><Countdown to={round.closesAt} /></b>
               </span>
@@ -99,6 +128,7 @@ export default function DirectorPage() {
 
         <div className="mt-6">
           {tab === "requests" && <Requests />}
+          {tab === "rules" && <OptionRules />}
           {tab === "courses" && <Courses year={year} />}
           {tab === "rounds" && <Rounds />}
           {tab === "students" && <Students year={year} />}
@@ -166,6 +196,119 @@ function Requests() {
         );
       })}
       {profile && <ProfileModal user={profile} onClose={() => setProfile(null)} />}
+    </div>
+  );
+}
+
+// ───────────── Option rules (per Master's) ─────────────
+const SEM_LABEL: Record<Semester, string> = { S1: "1st semester", S2: "2nd semester", A: "Annual" };
+
+function OptionRules() {
+  const { db, act } = useStore();
+  const [editing, setEditing] = useState<OptionGroup | null>(null);
+  const rules = ruleSummary(db, db.programme.id);
+  const nextName = () => `Opção ${db.groups.length + 1}`;
+  const blank = (year: Year): OptionGroup => ({ id: uid("g"), programmeId: db.programme.id, year, semester: "S1", name: nextName(), ects: 5, choose: 1 });
+
+  return (
+    <div>
+      <p className="mb-5 max-w-3xl text-sm text-ink/60">
+        Each Master&apos;s decides how many optional courses its students take. An <b>option slot</b> (e.g. Opção 1) says when it happens, how many courses
+        students choose in it and how many ECTS they add up to. Students&apos; pages and the &ldquo;students complete&rdquo; count follow these rules automatically.
+      </p>
+      <div className="grid gap-5 md:grid-cols-2">
+        {rules.map((r) => (
+          <section key={r.year} className="card p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-lg font-bold">Year {r.year}</h3>
+              <span className="text-sm text-ink/60">
+                {r.slots.length ? `${r.courses} option${r.courses === 1 ? "" : "s"} · ${r.ects} ECTS` : "No optional courses"}
+              </span>
+            </div>
+            <div className="mt-4 space-y-3">
+              {r.slots.map((g) => {
+                const n = db.courses.filter((c) => c.groupId === g.id).length;
+                return (
+                  <div key={g.id} className="flex items-center gap-3 rounded-xl border border-line p-3">
+                    <div className="grid size-11 shrink-0 place-items-center rounded-lg bg-brand/10 font-display text-lg font-bold text-brand">{g.choose ?? 1}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{g.name}</p>
+                      <p className="text-xs text-ink/55">
+                        {SEM_LABEL[g.semester]} · choose {g.choose ?? 1} of {n} course{n === 1 ? "" : "s"} · {g.ects} ECTS
+                      </p>
+                    </div>
+                    <button className="rounded-lg p-2 hover:bg-paper" onClick={() => setEditing(g)} aria-label={`Edit ${g.name}`}>
+                      <Pencil className="size-4" />
+                    </button>
+                    <button
+                      className="rounded-lg p-2 text-ink/50 hover:bg-paper hover:text-brand"
+                      onClick={() => confirm(`Remove ${g.name}?`) && act((d) => deleteGroup(d, g.id))}
+                      aria-label={`Remove ${g.name}`}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                );
+              })}
+              <button className="btn-ghost w-full border-dashed" onClick={() => setEditing(blank(r.year))}>
+                <Plus className="size-4" /> Add option slot to Year {r.year}
+              </button>
+            </div>
+          </section>
+        ))}
+      </div>
+      <p className="mt-4 text-sm text-ink/50">After adding a slot, add courses to it under Courses (or use ⇅ on an existing course to make it optional).</p>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4" onClick={() => setEditing(null)}>
+          <form
+            className="card w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (act((d) => saveGroup(d, editing))) setEditing(null);
+            }}
+          >
+            <h2 className="font-display text-xl font-bold">{db.groups.some((g) => g.id === editing.id) ? `Edit ${editing.name}` : "New option slot"}</h2>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="label">Name</label>
+                <input className="input" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
+              </div>
+              <div>
+                <label className="label">Year</label>
+                <select className="input" value={editing.year} onChange={(e) => setEditing({ ...editing, year: Number(e.target.value) as Year })}>
+                  <option value={1}>Year 1</option>
+                  <option value={2}>Year 2</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">When</label>
+                <select className="input" value={editing.semester} onChange={(e) => setEditing({ ...editing, semester: e.target.value as Semester })}>
+                  <option value="S1">1st semester</option>
+                  <option value="S2">2nd semester</option>
+                  <option value="A">Annual</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Courses to choose</label>
+                <input type="number" min={1} className="input" value={editing.choose ?? 1} onChange={(e) => setEditing({ ...editing, choose: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="label">Total ECTS</label>
+                <input type="number" min={1} step={0.5} className="input" value={editing.ects} onChange={(e) => setEditing({ ...editing, ects: Number(e.target.value) })} />
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-ink/50">
+              Example: &ldquo;choose 2 courses, 10 ECTS&rdquo; for two 5-ECTS options; &ldquo;choose 1, 45 ECTS&rdquo; for Dissertation or Project Work.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
+              <button className="btn-primary">Save</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

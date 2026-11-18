@@ -2,10 +2,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CheckCircle2, Clock3, LogOut, X, XCircle } from "lucide-react";
+import { Bell, CheckCircle2, ChevronsUpDown, Clock3, LogOut, X, XCircle } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Avatar } from "@/components/profile";
-import { roundState } from "@/lib/logic";
+import { roundState, staffProgrammes } from "@/lib/logic";
 import type { Role, Round, SelectionStatus, User } from "@/lib/types";
 
 export function Logo({ className = "", inverted = false }: { className?: string; inverted?: boolean }) {
@@ -182,7 +182,9 @@ const NAV: Record<Role, { href: string; label: string }[]> = {
 };
 
 export function AppHeader({ user, children }: { user: User; children?: React.ReactNode }) {
-  const { logout } = useStore();
+  const { logout, db, school, programmeChosen } = useStore();
+  const staff = user.role === "director" || user.role === "assistant";
+  const canSwitch = staff && staffProgrammes(school, user).length > 1;
   const router = useRouter();
   const path = usePathname();
   return (
@@ -192,7 +194,7 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
           <Logo className="text-white" inverted />
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV[user.role].map((n) => (
+          {(staff && !programmeChosen ? [] : NAV[user.role]).map((n) => (
             <Link
               key={n.href}
               href={n.href}
@@ -202,6 +204,21 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
             </Link>
           ))}
         </nav>
+        {staff && programmeChosen && path !== "/choose" && (
+          canSwitch ? (
+            <Link
+              href="/choose"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold hover:bg-white/25"
+              title={`${db.programme.name} — switch Master's`}
+            >
+              {db.programme.short} <ChevronsUpDown className="size-3.5 opacity-70" />
+            </Link>
+          ) : (
+            <span className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold" title={db.programme.name}>
+              {db.programme.short}
+            </span>
+          )
+        )}
         <div className="flex-1">{children}</div>
         <div className="flex items-center gap-2">
           {user.role === "student" && <Inbox user={user} />}
@@ -231,7 +248,7 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
       </div>
       {/* mobile nav */}
       <nav className="flex gap-1 overflow-x-auto px-5 pb-2 md:hidden">
-        {NAV[user.role].map((n) => (
+        {(staff && !programmeChosen ? [] : NAV[user.role]).map((n) => (
           <Link key={n.href} href={n.href} className={`whitespace-nowrap rounded-lg px-3 py-1 text-sm font-semibold ${path === n.href ? "bg-white/20" : "text-white/75"}`}>
             {n.label}
           </Link>
@@ -244,14 +261,19 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
 /** Redirects to the right sign-in page unless the signed-in user has one of the given roles. */
 export function useRequireRole(roles: Role | Role[], signIn?: string) {
   const list = Array.isArray(roles) ? roles : [roles];
-  const { user } = useStore();
+  const { user, programmeChosen } = useStore();
   const router = useRouter();
-  const allowed = !!user && list.includes(user.role);
+  const path = usePathname();
+  const staff = !!user && (user.role === "director" || user.role === "assistant");
+  // Staff first pick which Master's they are working on.
+  const needsChoice = staff && !programmeChosen && path !== "/choose";
+  const allowed = !!user && list.includes(user.role) && !needsChoice;
   useEffect(() => {
     if (!user) router.replace(signIn ?? signInFor(list[0]));
     else if (!list.includes(user.role)) router.replace(homeFor(user.role));
+    else if (needsChoice) router.replace("/choose");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, router, list.join(), signIn]);
+  }, [user, router, list.join(), signIn, needsChoice]);
   return allowed ? user : null;
 }
 

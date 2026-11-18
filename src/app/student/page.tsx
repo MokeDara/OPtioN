@@ -29,7 +29,9 @@ export default function StudentPage() {
     );
 
   const year: Year = user.year;
-  const round = roundForYear(db, year)!;
+  const realRound = roundForYear(db, year);
+  // A Master's may not have announced its selection dates yet.
+  const round = realRound ?? { id: "tba", programmeId: db.programme.id, year, label: `Year ${year} option selection`, opensAt: "2999-01-01T00:00:00Z", closesAt: "2999-01-15T00:00:00Z" };
   const state = roundState(round, now);
   const isOpen = state === "open";
   const groups = groupsForYear(db, year);
@@ -101,10 +103,10 @@ export default function StudentPage() {
                 </p>
                 <div className="mt-1 flex items-center gap-3">
                   <h1 className="font-display text-3xl font-bold">Hi {user.name.split(" ")[0]}</h1>
-                  <RoundPill round={round} />
+                  {realRound && <RoundPill round={round} />}
                 </div>
                 <p className="mt-1 text-ink/60">
-                  {round.label}: {fmtDate(round.opensAt)} → {fmtDate(round.closesAt)}
+                  {realRound ? `${round.label}: ${fmtDate(round.opensAt)} → ${fmtDate(round.closesAt)}` : `${round.label}: dates to be announced`}
                 </p>
                 <Link href="/profile#programme" className="mt-1 inline-block text-sm font-semibold text-brand hover:underline">
                   About my Master&apos;s →
@@ -115,7 +117,8 @@ export default function StudentPage() {
               <CalendarClock className="size-5 text-ink/50" />
               <div className="text-sm">
                 {state === "open" && <>Closes in <b className="text-lg"><Countdown to={round.closesAt} /></b></>}
-                {state === "upcoming" && <>Opens in <b className="text-lg"><Countdown to={round.opensAt} /></b></>}
+                {state === "upcoming" && realRound && <>Opens in <b className="text-lg"><Countdown to={round.opensAt} /></b></>}
+                {!realRound && <span className="font-semibold">Dates to be announced</span>}
                 {state === "closed" && <span className="font-semibold">Selection closed</span>}
               </div>
             </div>
@@ -140,13 +143,13 @@ export default function StudentPage() {
                         {sel!.status === "enrolled" ? <Check className="size-4 text-emerald-600" /> : <span className="text-xs text-amber-700">pending</span>}
                       </>
                     ) : (
-                      <span className="text-ink/50">choose {g.ects} ECTS</span>
+                      <span className="text-ink/50">choose {g.choose ?? 1} · {g.ects} ECTS</span>
                     )}
                   </div>
                 );
               })}
               <span className="ml-auto text-sm">
-                {enrolled >= need ? (
+                {groups.length === 0 ? null : enrolled >= need ? (
                   <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
                     <BadgeCheck className="size-4" /> All options confirmed
                   </span>
@@ -184,6 +187,15 @@ export default function StudentPage() {
           </section>
         )}
 
+        {groups.length === 0 && (
+          <div className="card mt-10 p-8 text-center">
+            <p className="font-display text-xl font-bold">No options to choose yet</p>
+            <p className="mx-auto mt-1 max-w-md text-ink/60">
+              {db.programme.short} hasn&apos;t published its Year {year} optional courses. You&apos;ll get an email here as soon as the selection opens.
+            </p>
+          </div>
+        )}
+
         {/* Options */}
         {groups.map((g) => {
           const options = yearCourses.filter((c) => c.groupId === g.id);
@@ -197,7 +209,7 @@ export default function StudentPage() {
                     {chosen && <Check className="size-5 text-emerald-600" />}
                   </h2>
                   <p className="text-sm text-ink/60">
-                    {g.semester === "A" ? "Annual" : g.semester === "S1" ? "1st semester" : "2nd semester"} · choose one ({g.ects} ECTS) from {options.length} options
+                    {g.semester === "A" ? "Annual" : g.semester === "S1" ? "1st semester" : "2nd semester"} · choose {(g.choose ?? 1) === 1 ? "one" : g.choose} ({g.ects} ECTS) from {options.length} option{options.length === 1 ? "" : "s"}
                   </p>
                 </div>
                 <p className="text-sm text-ink/50">Click a course for its full description.</p>

@@ -202,6 +202,12 @@ export function pickCourse(db: DB, studentId: string, courseId: string, now: Dat
   );
   if (sameName) return { ok: false, error: `You already chose ${course.name} in another option slot.` };
 
+  const choose = group.choose ?? 1;
+  const count = db.selections.filter(
+    (s) => s.studentId === studentId && s.status !== "rejected" && db.courses.find((c) => c.id === s.courseId)?.groupId === group.id,
+  ).length;
+  if (count >= choose)
+    return { ok: false, error: `${group.name}: you choose ${choose} course${choose === 1 ? "" : "s"} and you've already picked ${count}. Drop one first to swap.` };
   const used = groupEcts(db, studentId, group.id);
   if (used + course.ects > group.ects)
     return {
@@ -728,4 +734,75 @@ export function linkStaffProfessor(db: DB, userId: string, professorId: string |
     db: { ...db, professors, users: db.users.map((x) => (x.id === userId ? { ...x, professorId: pid } : x)) },
     message: `${u.name} also teaches as ${prof.title} ${prof.name}.`,
   };
+}
+
+// ───────────────────────── programme access & option rules ─────────────────────────
+
+/** The Master's a person may open: staff get their own plus any granted in the portal; the School team gets all. */
+export function staffProgrammes(db: DB, u: User | null): Programme[] {
+  if (!u) return [];
+  if (u.role === "admin") return db.programmes;
+  if (u.role === "student") return db.programmes.filter((p) => p.id === u.programmeId);
+  const ids = new Set([u.programmeId, ...(u.programmeIds ?? [])].filter(Boolean));
+  return db.programmes.filter((p) => ids.has(p.id));
+}
+
+export function setProgrammeAccess(db: DB, userId: string, ids: string[]): Result {
+  const u = db.users.find((x) => x.id === userId);
+  if (!u || !STAFF_ROLES.includes(u.role)) return { ok: false, error: "Only directors and assistants get programme access." };
+  const valid = ids.filter((id) => db.programmes.some((p) => p.id === id) && id !== u.programmeId);
+  return {
+    ok: true,
+    db: { ...db, users: db.users.map((x) => (x.id === userId ? { ...x, programmeIds: [...new Set(valid)] } : x)) },
+    message: `${u.name} can open ${valid.length + (u.programmeId ? 1 : 0)} Master's.`,
+  };
+}
+
+/** Plain-language rules for a programme, e.g. "Year 1: 2 courses (10 ECTS) · Year 2: 1 course (45 ECTS)". */
+export function ruleSummary(db: DB, programmeId: string) {
+  return ([1, 2] as Year[]).map((year) => {
+    const slots = db.groups.filter((g) => g.programmeId === programmeId && g.year === year);
+    return {
+      year,
+      slots,
+      courses: slots.reduce((n, g) => n + (g.choose ?? 1), 0),
+      ects: slots.reduce((n, g) => n + g.ects, 0),
+    };
+  });
+}
+
+export function saveGroup(db: DB, g: OptionGroup): Result {
+  if (!db.programmes.some((p) => p.id === g.programmeId)) return { ok: false, error: "Programme not found." };
+  if (!g.name.trim()) return { ok: false, error: "Give the slot a name, e.g. Opção 1." };
+  if (!(g.ects > 0)) return { ok: false, error: "ECTS must be more than 0." };
+  const choose = g.choose ?? 1;
+  if (!Number.isInteger(choose) || choose < 1) return { ok: false, error: "Students must choose at least 1 course." };
+  if (db.groups.some((x) => x.id !== g.id && x.programmeId === g.programmeId && x.name.trim().toLowerCase() === g.name.trim().toLowerCase()))
+    return { ok: false, error: `${g.name} already exists in this programme.` };
+  const prev = db.groups.find((x) => x.id === g.id);
+  const courses = db.courses.filter((c) => c.groupId === g.id);
+  if (prev) {
+    if (prev.year !== g.year && courses.length) return { ok: false, error: "Move its courses out before changing the year." };
+    const tooBig = courses.find((c) => c.ects > g.ects);
+    if (tooBig) return { ok: false, error: `${tooBig.name} is ${tooBig.ects} ECTS — more than the slot's ${g.ects}.` };
+    const maxChosen = Math.max(
+      0,
+      ...students(db).map((st) => db.selections.filter((x) => x.studentId === st.id && x.status !== "rejected" && courses.some((c) => c.id === x.courseId)).length),
+    );
+    if (choose < maxChosen) return { ok: false, error: `Some students already chose ${maxChosen} courses here — the number can't go below that.` };
+  }
+  const next = { ...g, name: g.name.trim(), choose };
+  return {
+    ok: true,
+    db: { ...db, groups: prev ? db.groups.map((x) => (x.id === g.id ? next : x)) : [...db.groups, next] },
+    message: prev ? `${next.name} updated.` : `${next.name} added.`,
+  };
+}
+
+export function deleteGroup(db: DB, groupId: string): Result {
+  const g = db.groups.find((x) => x.id === groupId);
+  if (!g) return { ok: false, error: "Slot not found." };
+  const n = db.courses.filter((c) => c.groupId === groupId).length;
+  if (n) return { ok: false, error: `${g.name} still has ${n} course${n === 1 ? "" : "s"}. Make them mandatory or move them first.` };
+  return { ok: true, db: { ...db, groups: db.groups.filter((x) => x.id !== groupId) }, message: `${g.name} removed.` };
 }

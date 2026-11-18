@@ -9,7 +9,7 @@ import { Professors } from "@/components/professors";
 import { STATUS, StatusChip, TOPICS, Thread } from "@/components/support";
 import { ProgrammeInfo } from "@/components/programme-info";
 import { useStore } from "@/lib/store";
-import { assignStaff, createProgramme, createStaff, directorOf, linkStaffProfessor, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
+import { assignStaff, createProgramme, createStaff, directorOf, linkStaffProfessor, setProgrammeAccess, replyTicket, resetPassword, setTicketStatus, setUserActive, updateProgramme, type NewProgramme } from "@/lib/logic";
 import { STAFF_ROLES, type Programme, type ProgrammeContact, type TicketStatus, type Year } from "@/lib/types";
 
 type Tab = "programmes" | "access" | "courses" | "professors" | "support" | "mail";
@@ -461,6 +461,28 @@ function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole })
                   )}
                 </button>
               </>
+            )}
+            {u.role !== "admin" && school.programmes.length > 1 && (
+              <div className="flex basis-full flex-wrap items-center gap-1.5 pl-[60px] text-xs">
+                <span className="text-ink/50">Can also open:</span>
+                {school.programmes
+                  .filter((p) => p.id !== u.programmeId)
+                  .map((p) => {
+                    const on = (u.programmeIds ?? []).includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() =>
+                          act((d) => setProgrammeAccess(d, u.id, on ? (u.programmeIds ?? []).filter((x) => x !== p.id) : [...(u.programmeIds ?? []), p.id]))
+                        }
+                        className={`rounded-full border px-2.5 py-0.5 font-semibold transition ${on ? "border-brand bg-brand text-white" : "border-line bg-white text-ink/55 hover:border-ink/30"}`}
+                        aria-pressed={on}
+                      >
+                        {p.short}
+                      </button>
+                    );
+                  })}
+              </div>
             )}
           </div>
         ))}
