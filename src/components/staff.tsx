@@ -6,8 +6,8 @@ import { CourseDetail, CourseImage } from "@/components/course-detail";
 import { Avatar, ImageInput, ProfileCard } from "@/components/profile";
 import { useStore } from "@/lib/store";
 import { AREAS } from "@/lib/seed";
-import { courseListCsv, lastListSent, pendingCount, professorUnits, sendCourseList, setCourseType, uid } from "@/lib/logic";
-import type { Course, Semester, User, Year } from "@/lib/types";
+import { courseListCsv, deleteGroup, groupsForYear, lastListSent, pendingCount, professorUnits, saveGroup, sendCourseList, setCourseType, uid } from "@/lib/logic";
+import type { Course, OptionGroup, Semester, User, Year } from "@/lib/types";
 
 export function download(filename: string, text: string) {
   const a = document.createElement("a");
@@ -55,7 +55,8 @@ export function Courses({ year }: { year: Year }) {
   const [editing, setEditing] = useState<Course | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [viewing, setViewing] = useState<Course | null>(null);
-  const groups = db.groups.filter((g) => g.year === year);
+  const [slot, setSlot] = useState<SlotDraft | null>(null);
+  const groups = groupsForYear(db, year);
   const mandatory = db.courses.filter((c) => c.year === year && !c.groupId);
 
   const row = (c: Course) => {
@@ -154,49 +155,136 @@ export function Courses({ year }: { year: Year }) {
     </div>
   );
 
+  const mandRow = (c: Course) => (
+    <div key={c.id} className="flex items-center gap-4 p-4">
+      <CourseImage course={c} className="size-12 rounded-lg" />
+      <div className="flex-1">
+        <p className="text-xs font-semibold text-ink/50">
+          {c.code} · {c.area} · {c.ects} ECTS · {db.professors.find((p) => p.id === c.professorId)?.name ?? <span className="text-brand">no professor</span>}
+        </p>
+        <p className="font-semibold">{c.name}</p>
+      </div>
+      <Actions c={c} />
+    </div>
+  );
+
+  // Semester 1, Semester 2 — and "Whole year" only when the plan has annual courses or slots.
+  const semesters = (["S1", "S2", "A"] as Semester[]).filter(
+    (sem) => sem !== "A" || mandatory.some((c) => c.semester === "A") || groups.some((g) => g.semester === "A"),
+  );
+
   return (
-    <div className="space-y-8">
-      {groups.map((g) => {
-        const list = db.courses.filter((c) => c.groupId === g.id);
+    <div className="space-y-12">
+      {semesters.map((sem) => {
+        const mand = mandatory.filter((c) => c.semester === sem).sort((a, b) => a.name.localeCompare(b.name));
+        const slots = groups.filter((g) => g.semester === sem);
         return (
-          <section key={g.id}>
-            <div className="mb-3 flex items-end justify-between">
-              <div>
-                <h3 className="font-display text-lg font-bold">{g.name} <span className="font-normal text-ink/50">· {g.semester === "A" ? "Annual" : g.semester} · {g.ects} ECTS</span></h3>
-                <p className="text-sm text-ink/60">{list.length} options. Click a row to see who&apos;s enrolled.</p>
+          <section key={sem}>
+            <h3 className="border-b-2 border-ink pb-2 font-display text-xl font-bold">
+              Year {year} · {sem === "S1" ? "Semester 1" : sem === "S2" ? "Semester 2" : "Whole year"}
+            </h3>
+
+            {/* 1. Mandatory courses */}
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">Mandatory courses ({mand.length})</p>
+                <button className="btn-ghost py-1.5 text-xs" onClick={() => setEditing({ ...blank(db.programme.id, year), semester: sem, capacity: 0 })}>
+                  <Plus className="size-3.5" /> Add mandatory course
+                </button>
               </div>
-              <button className="btn-primary" onClick={() => setEditing({ ...blank(db.programme.id, year, g.id), semester: g.semester, ects: g.ects })}>
-                <Plus className="size-4" /> Add option
-              </button>
+              <div className="card divide-y divide-line overflow-hidden">
+                {mand.length ? mand.map(mandRow) : <p className="p-4 text-sm text-ink/50">No mandatory courses this semester.</p>}
+              </div>
             </div>
-            <div className="card divide-y divide-line overflow-hidden">{list.map(row)}</div>
+
+            {/* 2. Each Opção with its courses */}
+            {slots.map((g) => {
+              const list = db.courses.filter((c) => c.groupId === g.id).sort((a, b) => a.name.localeCompare(b.name));
+              return (
+                <div key={g.id} className="mt-6">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg bg-brand px-2.5 py-1 font-display text-sm font-bold text-white">{g.name}</span>
+                    <span className="text-sm text-ink/55">{g.ects} ECTS · {list.length} course{list.length === 1 ? "" : "s"}</span>
+                    <button className="rounded-lg p-1.5 text-ink/50 hover:bg-paper hover:text-ink" onClick={() => setSlot(g)} aria-label={`Edit ${g.name}`} title="Edit option">
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      className="rounded-lg p-1.5 text-ink/50 hover:bg-paper hover:text-brand"
+                      onClick={() => confirm(`Remove ${g.name}?`) && act((d) => deleteGroup(d, g.id))}
+                      aria-label={`Remove ${g.name}`}
+                      title="Remove option (must be empty)"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                    <button className="btn-primary ml-auto py-1.5 text-xs" onClick={() => setEditing({ ...blank(db.programme.id, year, g.id), semester: g.semester, ects: g.ects })}>
+                      <Plus className="size-3.5" /> Add course to {g.name}
+                    </button>
+                  </div>
+                  <div className="card divide-y divide-line overflow-hidden">
+                    {list.length ? list.map(row) : <p className="p-4 text-sm text-ink/50">No courses in {g.name} yet.</p>}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* 3. New Opção in this semester */}
+            <button
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink/15 py-4 text-sm font-semibold text-ink/55 hover:border-brand hover:text-brand"
+              onClick={() => setSlot({ programmeId: db.programme.id, year, semester: sem, ects: 5 })}
+            >
+              <Plus className="size-4" /> Add option to Year {year} · {sem === "S1" ? "Semester 1" : sem === "S2" ? "Semester 2" : "Whole year"}
+            </button>
           </section>
         );
       })}
 
-      <section>
-        <div className="mb-3 flex items-end justify-between">
-          <h3 className="font-display text-lg font-bold">Mandatory courses <span className="font-normal text-ink/50">· Year {year}</span></h3>
-          <button className="btn-ghost" onClick={() => setEditing({ ...blank(db.programme.id, year), capacity: 0 })}>
-            <Plus className="size-4" /> Add mandatory
-          </button>
-        </div>
-        <div className="card divide-y divide-line overflow-hidden">
-          {mandatory.map((c) => (
-            <div key={c.id} className="flex items-center gap-4 p-4">
-              <CourseImage course={c} className="size-12 rounded-lg" />
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-ink/50">{c.code} · {c.semester} · {c.area} · {c.ects} ECTS</p>
-                <p className="font-semibold">{c.name}</p>
-              </div>
-              <Actions c={c} />
-            </div>
-          ))}
-        </div>
-      </section>
-
+      {slot && <SlotEditor slot={slot} onClose={() => setSlot(null)} />}
       {editing && <CourseEditor course={editing} onClose={() => setEditing(null)} />}
       {viewing && <CourseDetail course={viewing} group={db.groups.find((g) => g.id === viewing.groupId)} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+type SlotDraft = Omit<OptionGroup, "id" | "name"> & { id?: string; name?: string };
+
+/** Create or edit an Opção: its name, semester and ECTS. */
+function SlotEditor({ slot, onClose }: { slot: SlotDraft; onClose: () => void }) {
+  const { act } = useStore();
+  const [x, setX] = useState(slot);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" onClick={onClose}>
+      <form
+        className="card w-full max-w-md p-6"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (act((d) => saveGroup(d, x))) onClose();
+        }}
+      >
+        <h2 className="font-display text-xl font-bold">{slot.id ? `Edit ${slot.name}` : "New option"}</h2>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="slot-name">Name</label>
+            <input id="slot-name" className="input" value={x.name ?? ""} onChange={(e) => setX({ ...x, name: e.target.value })} placeholder="Leave empty for the next number (Opção N)" />
+          </div>
+          <div>
+            <label className="label" htmlFor="slot-sem">Semester</label>
+            <select id="slot-sem" className="input" value={x.semester} onChange={(e) => setX({ ...x, semester: e.target.value as Semester })}>
+              <option value="S1">Semester 1</option>
+              <option value="S2">Semester 2</option>
+              <option value="A">Whole year</option>
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="slot-ects">ECTS to choose</label>
+            <input id="slot-ects" className="input" type="number" min={0.5} step={0.5} value={x.ects} onChange={(e) => setX({ ...x, ects: Number(e.target.value) })} />
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary">{slot.id ? "Save" : "Create option"}</button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -212,7 +300,7 @@ function CourseEditor({ course, onClose }: { course: Course; onClose: () => void
   const isNew = !db.courses.some((x) => x.id === course.id);
   const set = <K extends keyof Course>(k: K, v: Course[K]) => setC({ ...c, [k]: v });
   const setD = <K extends keyof Course["details"]>(k: K, v: Course["details"][K]) => setC({ ...c, details: { ...c.details, [k]: v } });
-  const groups = db.groups.filter((g) => g.year === c.year);
+  const groups = groupsForYear(db, c.year);
 
   const submit = () => {
     const details = {
@@ -262,7 +350,7 @@ function CourseEditor({ course, onClose }: { course: Course; onClose: () => void
           </div>
           <div>
             <label className="label">Semester</label>
-            <select className="input" value={c.semester} onChange={(e) => set("semester", e.target.value as Semester)}>
+            <select className="input" value={c.semester} disabled={!!c.groupId} title={c.groupId ? "Set by its option" : undefined} onChange={(e) => set("semester", e.target.value as Semester)}>
               <option value="S1">S1</option>
               <option value="S2">S2</option>
               <option value="A">Annual</option>
@@ -270,10 +358,19 @@ function CourseEditor({ course, onClose }: { course: Course; onClose: () => void
           </div>
           <div>
             <label className="label">Type</label>
-            <select className="input" value={c.groupId ?? ""} onChange={(e) => set("groupId", e.target.value || undefined)}>
+            <select
+              className="input"
+              value={c.groupId ?? ""}
+              onChange={(e) => {
+                const g = groups.find((x) => x.id === e.target.value);
+                setC({ ...c, groupId: g?.id, semester: g ? g.semester : c.semester, capacity: g && !c.capacity ? 10 : c.capacity });
+              }}
+            >
               <option value="">Mandatory</option>
               {groups.map((g) => (
-                <option key={g.id} value={g.id}>{g.name} (option)</option>
+                <option key={g.id} value={g.id}>
+                  {g.name} · {g.semester === "A" ? "Whole year" : g.semester === "S1" ? "Semester 1" : "Semester 2"} (option)
+                </option>
               ))}
             </select>
           </div>

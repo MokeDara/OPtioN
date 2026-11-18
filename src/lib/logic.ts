@@ -167,8 +167,53 @@ export function setCourseType(db: DB, courseId: string, optional: boolean): Resu
   return { ok: true, db: { ...db, groups, courses: db.courses.map((x) => (x.id === courseId ? next : x)) }, message: `${c.name} is now an option in ${g.name}.${note}` };
 }
 
+const SEM_ORDER: Record<Semester, number> = { S1: 0, S2: 1, A: 2 };
+const optNum = (g: OptionGroup) => Number(g.name.match(/\d+/)?.[0] ?? 999);
+/** Opção slots in study-plan order: Semester 1, Semester 2, annual; then by number. */
+export const sortGroups = (list: OptionGroup[]) => list.slice().sort((a, b) => a.year - b.year || SEM_ORDER[a.semester] - SEM_ORDER[b.semester] || optNum(a) - optNum(b) || a.name.localeCompare(b.name));
+
 export function groupsForYear(db: DB, year: Year): OptionGroup[] {
-  return db.groups.filter((g) => g.year === year);
+  return sortGroups(db.groups.filter((g) => g.year === year));
+}
+
+/** Create or edit an Opção slot. A semester can have as many slots as the study plan needs. */
+export function saveGroup(db: DB, group: Omit<OptionGroup, "id" | "name"> & { id?: string; name?: string }): Result & { groupId?: string } {
+  if (!db.programmes.some((p) => p.id === group.programmeId)) return { ok: false, error: "Choose the programme." };
+  if (!(group.ects > 0)) return { ok: false, error: "ECTS must be more than 0." };
+  const existing = group.id ? db.groups.find((g) => g.id === group.id) : undefined;
+  const mine = db.groups.filter((g) => g.programmeId === group.programmeId);
+  const name = group.name?.trim() || existing?.name || `Opção ${Math.max(0, ...mine.map(optNum).filter((n) => n < 999)) + 1}`;
+  if (mine.some((g) => g.id !== existing?.id && g.name.toLowerCase() === name.toLowerCase())) return { ok: false, error: `${name} already exists in this Master's.` };
+  if (existing) {
+    const courses = db.courses.filter((c) => c.groupId === existing.id);
+    const big = courses.find((c) => c.ects > group.ects);
+    if (big) return { ok: false, error: `${big.name} is ${big.ects} ECTS — more than ${group.ects}.` };
+    if (existing.year !== group.year && db.selections.some((s) => courses.some((c) => c.id === s.courseId) && s.status !== "rejected"))
+      return { ok: false, error: `Students have chosen courses in ${existing.name}; its year can't change.` };
+    const next: OptionGroup = { ...existing, name, year: group.year, semester: group.semester, ects: group.ects };
+    return {
+      ok: true,
+      db: {
+        ...db,
+        groups: db.groups.map((g) => (g.id === existing.id ? next : g)),
+        // its courses follow the slot's year and semester
+        courses: db.courses.map((c) => (c.groupId === existing.id ? { ...c, year: next.year, semester: next.semester } : c)),
+      },
+      message: `${name} saved.`,
+      groupId: existing.id,
+    };
+  }
+  const g: OptionGroup = { id: uid("g"), programmeId: group.programmeId, year: group.year, semester: group.semester, name, ects: group.ects };
+  return { ok: true, db: { ...db, groups: [...db.groups, g] }, message: `${name} created. Now add its courses.`, groupId: g.id };
+}
+
+/** Remove an empty Opção slot. */
+export function deleteGroup(db: DB, groupId: string): Result {
+  const g = db.groups.find((x) => x.id === groupId);
+  if (!g) return { ok: false, error: "Option not found." };
+  const n = db.courses.filter((c) => c.groupId === groupId).length;
+  if (n) return { ok: false, error: `${g.name} still has ${n} course${n === 1 ? "" : "s"}. Move or delete them first.` };
+  return { ok: true, db: { ...db, groups: db.groups.filter((x) => x.id !== groupId) }, message: `${g.name} removed.` };
 }
 
 /** Optional ECTS a student must choose in a year = sum of that year's Opção slots. */
@@ -371,6 +416,7 @@ export function saveCourse(db: DB, course: Course): Result {
     if (g.year !== course.year) return { ok: false, error: `${g.name} belongs to Year ${g.year}.` };
     if (course.ects > g.ects) return { ok: false, error: `${g.name} is only ${g.ects} ECTS.` };
     if (course.capacity < 1) return { ok: false, error: "Seats must be at least 1." };
+    course = { ...course, semester: g.semester }; // an option runs in its slot's semester
   }
   const dupe = db.courses.find((c) => c.code.toLowerCase() === course.code.toLowerCase() && c.id !== course.id);
   if (dupe) return { ok: false, error: `Code ${course.code} is already used by ${dupe.name}.` };

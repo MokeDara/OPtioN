@@ -382,18 +382,16 @@ function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole })
   const staff = school.users.filter((u) => STAFF_ROLES.includes(u.role) || u.role === "admin");
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-  return (
-    <div>
-      <AccessRequests onCreds={onCreds} />
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <span />
-        <button className="btn-primary" onClick={() => onInvite({ role: "professor" })}>
-          <Plus className="size-4" /> Give access
-        </button>
-      </div>
+  // Per Master's: course director, then assistants, then professors A→Z. Unassigned staff and the DSI team last.
+  const RANK: Record<string, number> = { director: 0, assistant: 1, professor: 2 };
+  const ordered = (list: User[]) => list.slice().sort((x, y) => (RANK[x.role] ?? 9) - (RANK[y.role] ?? 9) || x.name.localeCompare(y.name));
+  const sections: { key: string; title: string; people: User[] }[] = [
+    ...school.programmes.map((p) => ({ key: p.id, title: `${p.short} — ${p.name}`, people: ordered(staff.filter((u) => u.role !== "admin" && u.programmeId === p.id)) })),
+    { key: "none", title: "No Master's yet", people: ordered(staff.filter((u) => u.role !== "admin" && !school.programmes.some((p) => p.id === u.programmeId))) },
+    { key: "dsi", title: "DSI team", people: ordered(staff.filter((u) => u.role === "admin")) },
+  ].filter((g) => g.people.length);
 
-      <div className="card divide-y divide-line">
-        {staff.map((u) => (
+  const row = (u: User) => (
           <div key={u.id} className={`flex flex-wrap items-center gap-4 p-4 ${u.active === false ? "opacity-55" : ""}`}>
             <Avatar user={u} size={44} />
             <div className="min-w-0 flex-1">
@@ -490,6 +488,25 @@ function StaffAccess({ onInvite, onCreds }: { onInvite: (i: { role: StaffRole })
               </>
             )}
           </div>
+  );
+
+  return (
+    <div>
+      <AccessRequests onCreds={onCreds} />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <span />
+        <button className="btn-primary" onClick={() => onInvite({ role: "professor" })}>
+          <Plus className="size-4" /> Give access
+        </button>
+      </div>
+      <div className="space-y-8">
+        {sections.map((g) => (
+          <section key={g.key}>
+            <h3 className="mb-2 font-display text-lg font-bold">
+              {g.title} <span className="text-sm font-normal text-ink/50">· {g.people.length}</span>
+            </h3>
+            <div className="card divide-y divide-line">{g.people.map(row)}</div>
+          </section>
         ))}
       </div>
     </div>
