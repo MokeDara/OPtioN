@@ -232,7 +232,7 @@ export function groupEcts(db: DB, studentId: string, groupId: string, statuses: 
 
 /** Seats taken = enrolled only. Pending approval requests do NOT hold a seat. */
 export function seatsTaken(db: DB, courseId: string): number {
-  return db.selections.filter((s) => s.courseId === courseId && s.status === "enrolled").length;
+  return db.selections.filter((s) => s.courseId === courseId && s.status === "enrolled").length + (db.hiddenSeats?.[courseId]?.enrolled ?? 0);
 }
 
 export function seatsLeft(db: DB, course: Course): number {
@@ -240,7 +240,7 @@ export function seatsLeft(db: DB, course: Course): number {
 }
 
 export function pendingCount(db: DB, courseId: string): number {
-  return db.selections.filter((s) => s.courseId === courseId && s.status === "pending").length;
+  return db.selections.filter((s) => s.courseId === courseId && s.status === "pending").length + (db.hiddenSeats?.[courseId]?.pending ?? 0);
 }
 
 export function activeSelections(db: DB, studentId: string, year?: Year): Selection[] {

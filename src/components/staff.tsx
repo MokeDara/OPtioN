@@ -5,7 +5,7 @@ import { SeatMeter, fmtDate } from "@/components/ui";
 import { CourseDetail, CourseImage } from "@/components/course-detail";
 import { Avatar, ImageInput, ProfileCard } from "@/components/profile";
 import { useStore } from "@/lib/store";
-import { AREAS } from "@/lib/seed";
+import { AREAS } from "@/lib/areas";
 import { courseListCsv, deleteGroup, groupsForYear, lastListSent, pendingCount, professorUnits, saveGroup, sendCourseList, setCourseType, uid } from "@/lib/logic";
 import type { Course, OptionGroup, Semester, User, Year } from "@/lib/types";
 

@@ -2,7 +2,7 @@
 export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 export const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 
-/** False until both variables are set — the app keeps running on the local demo data. */
+/** False until both variables are set — the app then shows a "not connected" page. */
 export const supabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_KEY);
 
 export function requireSupabaseEnv() {

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ArrowDownCircle, ArrowUpCircle, BookOpen, Building2, Copy, FileSpreadsheet, Info, KeyRound, LifeBuoy, Mail, Pencil, Plus, RotateCcw, Search, Send, UserCheck, UserPlus, UserX, X } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, BookOpen, Building2, Copy, FileSpreadsheet, Info, KeyRound, LifeBuoy, Mail, Pencil, Plus, Search, Send, UserCheck, UserPlus, UserX, X } from "lucide-react";
 import { AppHeader, Empty, fmtDate } from "@/components/ui";
 import { SignInForm } from "@/components/sign-in";
 import { Avatar } from "@/components/profile";
@@ -25,7 +25,7 @@ const ROLE: Record<string, { label: string; cls: string }> = {
 };
 
 export default function PortalPage() {
-  const { school, user, resetDemo } = useStore();
+  const { school, user } = useStore();
   const [tab, setTab] = useState<Tab>("programmes");
   const [invite, setInvite] = useState<{ role: StaffRole; programmeId?: string } | null>(null);
   const [creds, setCreds] = useState<Creds | null>(null);
@@ -37,12 +37,8 @@ export default function PortalPage() {
         badge="DSI"
         title="DSI portal"
         subtitle="For the DSI management and technical team: programmes, staff access, courses, professors and support requests."
-        idLabel="Username"
+        idLabel="Username or email"
         idPlaceholder="admin"
-        demo={[
-          { label: "Management", username: "admin", icon: <Building2 className="size-4" /> },
-          { label: "Technical", username: "tech", icon: <KeyRound className="size-4" /> },
-        ]}
         onSignedIn={() => undefined}
         showHome={false}
       />
@@ -70,9 +66,6 @@ export default function PortalPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-brand">Management portal</p>
             <h1 className="font-display text-3xl font-bold">{school.school}</h1>
           </div>
-          <button className="btn-ghost" onClick={() => confirm("Reset all demo data?") && resetDemo()} title="Reset demo data">
-            <RotateCcw className="size-4" /> Reset demo
-          </button>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-5">
@@ -598,7 +591,7 @@ function AddStaff({ initial, onClose, onCreated }: { initial: { role: StaffRole;
         }}
       >
         <h2 className="font-display text-xl font-bold">Give access</h2>
-        <p className="mt-1 text-sm text-ink/60">We create a username and password and email them with the sign-in link.</p>
+        <p className="mt-1 text-sm text-ink/60">We create their login with a temporary password. Give it to them: they can change it under My profile.</p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label">Access</label>
@@ -658,7 +651,7 @@ function CredentialsDialog({ creds, onClose }: { creds: Creds; onClose: () => vo
           </button>
         </div>
         <p className="mt-1 text-sm text-ink/60">
-          Sent to {creds.email}.
+          Give these to {creds.name.split(" ")[0]} ({creds.email}). They can sign in with the username or the email, and change the password under My profile. Copy it now: it isn&apos;t shown again.
         </p>
         <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-paper p-4 font-mono text-sm">{text}</pre>
         <div className="mt-4 flex flex-wrap justify-end gap-2">

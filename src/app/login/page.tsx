@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { GraduationCap } from "lucide-react";
 import { SignInForm } from "@/components/sign-in";
 import { useT } from "@/lib/prefs";
 
@@ -12,18 +11,26 @@ export default function StudentLoginPage() {
       badge="Student"
       title="Student sign in"
       subtitle="Choose your options, follow your requests and see the calendar."
-      idLabel="Student number"
+      idLabel="Student number or email"
       idPlaceholder="pg55000"
-      demo={[
-        { label: "Year 2 student", username: "pg50001", icon: <GraduationCap className="size-4" /> },
-        { label: "Year 1 student", username: "pg50101", icon: <GraduationCap className="size-4" /> },
-      ]}
+      extra={<ForgotLink />}
       footer={
         <>
           <FirstTime />
         </>
       }
     />
+  );
+}
+
+function ForgotLink() {
+  const t = useT();
+  return (
+    <div className="-mt-2 text-right">
+      <Link href="/forgot-password" className="text-xs font-semibold text-ink/55 hover:text-brand hover:underline">
+        {t("Forgot password?")}
+      </Link>
+    </div>
   );
 }
 

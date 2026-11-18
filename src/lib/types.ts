@@ -9,7 +9,7 @@ export const STAFF_ROLES: Role[] = ["director", "assistant", "professor"];
 export interface User {
   id: string;
   username: string; // student number, e.g. pg55000
-  password: string; // demo only — real auth comes with Supabase
+  password: string; // never stored: set only when the DSI portal creates or resets a login (sent to Supabase Auth)
   name: string; // full name
   email: string;
   role: Role;
@@ -215,7 +215,7 @@ export interface AccessRequest {
 }
 
 export interface DB {
-  version: number; // bump when the demo data shape changes
+  version: number;
   school: string; // "Department of Information Systems"
   schoolContact?: string; // address, phone, email of the department
   programmes: Programme[];
@@ -232,6 +232,8 @@ export interface DB {
   announcements: Announcement[];
   tickets: SupportTicket[];
   accessRequests?: AccessRequest[];
+  /** Seats held by choices this person can't see (other students), from the database's seat counts. */
+  hiddenSeats?: Record<string, { enrolled: number; pending: number }>;
 }
 
 export type RoundState = "upcoming" | "open" | "closed";

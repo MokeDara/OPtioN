@@ -17,16 +17,35 @@ export default function SignupPage() {
   const [u, setU] = useState<User>(empty());
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [checkEmail, setCheckEmail] = useState(false);
   const set = (patch: Partial<User>) => setU((x) => ({ ...x, ...patch }));
   const student = true;
 
-  const submit = () => {
+  const submit = async () => {
     setError("");
     if (u.password !== confirm) return setError("The two passwords don't match.");
     const { id: _id, ...input } = u;
     void _id;
-    if (register(input)) router.push("/student");
+    setBusy(true);
+    const r = await register(input);
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    if (r.confirmEmail) setCheckEmail(true);
+    else router.push("/student");
   };
+
+  if (checkEmail)
+    return (
+      <main className="grid min-h-screen place-items-center px-5">
+        <div className="card max-w-md p-8 text-center">
+          <Logo className="text-3xl" />
+          <h1 className="mt-6 font-display text-2xl font-bold">Check your email</h1>
+          <p className="mt-2 text-sm text-ink/60">We sent a link to {u.email}. Open it to confirm your account, then sign in with your student number or email.</p>
+          <Link href="/login" className="btn-primary mt-6">Go to sign in</Link>
+        </div>
+      </main>
+    );
 
   return (
     <main className="relative min-h-screen bg-[radial-gradient(1200px_600px_at_80%_-10%,#f7d4d9_0%,transparent_60%),radial-gradient(900px_500px_at_-10%_110%,#fbe3cf_0%,transparent_60%)] px-5 py-10">
@@ -39,7 +58,7 @@ export default function SignupPage() {
           className="card p-8"
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void submit();
           }}
         >
           <Logo className="text-3xl" />
@@ -81,7 +100,7 @@ export default function SignupPage() {
           <ProfileFields u={u} set={set} onError={setError} />
 
           {error && <p className="mt-6 rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p>}
-          <button className="btn-brand mt-6 w-full py-3 text-base">Create account</button>
+          <button className="btn-brand mt-6 w-full py-3 text-base disabled:opacity-60" disabled={busy}>{busy ? "Creating your account…" : "Create account"}</button>
           <p className="mt-4 text-center text-sm text-ink/60">
             Already registered? <Link href="/login" className="font-semibold text-brand hover:underline">Sign in</Link>
           </p>

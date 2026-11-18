@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { AREAS } from "@/lib/seed";
+import { AREAS } from "@/lib/areas";
 import { useStore } from "@/lib/store";
 import { Avatar } from "@/components/profile";
 import type { Course, OptionGroup } from "@/lib/types";

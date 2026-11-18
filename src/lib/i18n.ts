@@ -60,7 +60,6 @@ export const PT: Record<string, string> = {
   // sign-in
   Home: "Início",
   Password: "Palavra-passe",
-  "Demo · password “option”": "Demo · palavra-passe “option”",
   "Student sign in": "Entrada de estudante",
   "Choose your options, follow your requests and see the calendar.": "Escolhe as tuas opções, acompanha os pedidos e vê o calendário.",
   "Student number": "Número de estudante",
@@ -98,10 +97,16 @@ export const PT: Record<string, string> = {
   "Send another request": "Enviar outro pedido",
   "Back to sign in": "Voltar a entrar",
   "Reset your password": "Repor a palavra-passe",
-  "Enter the email you use to sign in. The DSI team will send you a new password.": "Introduza o email com que entra. A equipa do DSI enviar-lhe-á uma nova palavra-passe.",
+  "Enter the email you use to sign in. We'll email you a link to choose a new password.": "Introduza o email com que entra. Enviamos-lhe um link para escolher uma nova palavra-passe.",
   "Email": "Email",
-  "Send reset request": "Pedir nova palavra-passe",
-  "If this email has access, the DSI team will email you a new password shortly.": "Se este email tiver acesso, a equipa do DSI enviar-lhe-á uma nova palavra-passe em breve.",
+  "Send reset link": "Enviar link",
+  "If this email has a login, you'll get an email with a link to choose a new password. Check your spam folder too.": "Se este email tiver uma conta, vai receber um link para escolher uma nova palavra-passe. Veja também o spam.",
+  "Signing in…": "A entrar…",
+  "Student number or email": "Número de estudante ou email",
+  "Choose a new password": "Escolha uma nova palavra-passe",
+  "This link has expired or was already used. Ask for a new one from the sign-in page.": "Este link expirou ou já foi usado. Peça um novo na página de entrada.",
+  "Save new password": "Guardar nova palavra-passe",
+  "Wrong username or password.": "Utilizador ou palavra-passe errados.",
 
   // workspaces & my courses
   "My courses": "As minhas unidades",

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { FileSpreadsheet, RotateCcw } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 import { AppHeader, Countdown, RoundPill, useRequireRole } from "@/components/ui";
 import { Courses, download } from "@/components/staff";
 import { Requests, Rounds, Students } from "@/components/programme-admin";
@@ -12,7 +12,7 @@ type Tab = "requests" | "courses" | "rounds" | "students";
 
 export default function DirectorPage() {
   const user = useRequireRole(["director", "assistant"]);
-  const { db, now, resetDemo } = useStore();
+  const { db, now } = useStore();
   const [tab, setTab] = useState<Tab>("requests");
   const [year, setYear] = useState<Year>(2);
   if (!user) return null;
@@ -61,9 +61,6 @@ export default function DirectorPage() {
           <div className="flex gap-2">
             <button className="btn-ghost" onClick={() => download(`option-general-list-year${year}.csv`, generalListCsv(db, year))} title="ID, name and every Opção for each student">
               <FileSpreadsheet className="size-4" /> General list · Year {year}
-            </button>
-            <button className="btn-ghost" onClick={() => confirm("Reset all demo data?") && resetDemo()} title="Reset demo data">
-              <RotateCcw className="size-4" />
             </button>
           </div>
         </div>

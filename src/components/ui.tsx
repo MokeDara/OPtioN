@@ -266,8 +266,8 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
           )}
           <button
             onClick={() => {
-              logout();
               router.push(signInFor(user.role));
+              void logout();
             }}
             className="ml-2 rounded-xl p-2 hover:bg-white/10"
             aria-label={t("Sign out")}

@@ -5,7 +5,7 @@ import { CheckCircle2, KeyRound, LogIn, Shield } from "lucide-react";
 import { DEPARTMENT_LINE } from "@/components/ui";
 import { useStore } from "@/lib/store";
 import { PrefsToggle, useT } from "@/lib/prefs";
-import { requestAccess, requestPasswordReset } from "@/lib/logic";
+import { requestAccess } from "@/lib/logic";
 
 /** Shell of the professor pages: department line, "Restricted area for teachers.", language/theme switch. */
 export function StaffShell({ children }: { children: React.ReactNode }) {
@@ -174,7 +174,7 @@ export function RequestAccessForm() {
 
 /** "Forgot password?": sends a reset request to the DSI team. */
 export function ForgotPasswordForm() {
-  const { act } = useStore();
+  const { forgotPassword } = useStore();
   const t = useT();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -183,7 +183,7 @@ export function ForgotPasswordForm() {
     return (
       <div className="card p-6 text-center">
         <CheckCircle2 className="mx-auto size-10 text-emerald-600" />
-        <p className="mt-3 text-sm text-ink/70">{t("If this email has access, the DSI team will email you a new password shortly.")}</p>
+        <p className="mt-3 text-sm text-ink/70">{t("If this email has a login, you'll get an email with a link to choose a new password. Check your spam folder too.")}</p>
         <Link href="/staff" className="btn-primary mt-5">
           {t("Back to sign in")}
         </Link>
@@ -195,18 +195,18 @@ export function ForgotPasswordForm() {
       className="card p-6"
       onSubmit={(e) => {
         e.preventDefault();
-        if (act((d, n) => requestPasswordReset(d, email, n))) setSent(true);
+        void forgotPassword(email).then((ok) => ok && setSent(true));
       }}
     >
       <h2 className="flex items-center gap-2 font-display text-2xl font-bold">
         <KeyRound className="size-5" /> {t("Reset your password")}
       </h2>
-      <p className="mt-1 text-sm text-ink/60">{t("Enter the email you use to sign in. The DSI team will send you a new password.")}</p>
+      <p className="mt-1 text-sm text-ink/60">{t("Enter the email you use to sign in. We'll email you a link to choose a new password.")}</p>
       <div className="mt-5">
         <label className="label" htmlFor="fp-email">{t("Email")}</label>
         <input id="fp-email" type="email" className="input" placeholder="name@dsi.uminho.pt" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
       </div>
-      <button className="btn-brand mt-5 w-full py-3">{t("Send reset request")}</button>
+      <button className="btn-brand mt-5 w-full py-3">{t("Send reset link")}</button>
       <p className="mt-4 text-center text-sm">
         <Link href="/staff" className="font-semibold text-brand hover:underline">
           {t("Back to sign in")}

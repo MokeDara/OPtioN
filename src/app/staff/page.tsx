@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { GraduationCap, KeyRound, UserCog } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 import { SignInCard } from "@/components/sign-in";
 import { StaffShell } from "@/components/staff-access";
 import { useT } from "@/lib/prefs";
@@ -14,14 +14,9 @@ export default function StaffLoginPage() {
         roles={["director", "assistant", "professor"]}
         badge="Staff"
         title="Sign in"
-        subtitle="Use the username and password emailed to you when your access was approved."
+        subtitle="Use the username or email and the password the DSI team gave you when your access was approved."
         idLabel="Username or email"
         idPlaceholder="name@dsi.uminho.pt"
-        demo={[
-          { label: "Director", username: "director", icon: <KeyRound className="size-4" /> },
-          { label: "Assistant", username: "assistant", icon: <UserCog className="size-4" /> },
-          { label: "Professor", username: "professor", icon: <GraduationCap className="size-4" /> },
-        ]}
         showLogo={false}
         extra={
           <div className="-mt-2 text-right">

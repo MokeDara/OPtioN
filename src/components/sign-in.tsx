@@ -16,9 +16,9 @@ export function SignInForm({
   subtitle,
   idLabel,
   idPlaceholder,
-  demo,
   footer,
   onSignedIn,
+  extra,
   showHome = true,
 }: {
   roles: Role[];
@@ -27,9 +27,9 @@ export function SignInForm({
   subtitle: string;
   idLabel: string;
   idPlaceholder: string;
-  demo: { label: string; username: string; icon?: React.ReactNode }[];
   footer?: React.ReactNode;
   onSignedIn?: () => void;
+  extra?: React.ReactNode;
   /** Staff and portal sign-in pages stand alone: no link back to the student site. */
   showHome?: boolean;
 }) {
@@ -45,7 +45,7 @@ export function SignInForm({
         ) : (
           <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.2em] text-ink/40">{badge} access</p>
         )}
-        <SignInCard {...{ roles, badge, title, subtitle, idLabel, idPlaceholder, demo, footer, onSignedIn }} />
+        <SignInCard {...{ roles, badge, title, subtitle, idLabel, idPlaceholder, footer, onSignedIn, extra }} />
       </div>
     </main>
   );
@@ -59,7 +59,6 @@ export function SignInCard({
   subtitle,
   idLabel,
   idPlaceholder,
-  demo,
   footer,
   onSignedIn,
   showLogo = true,
@@ -71,7 +70,6 @@ export function SignInCard({
   subtitle: string;
   idLabel: string;
   idPlaceholder: string;
-  demo: { label: string; username: string; icon?: React.ReactNode }[];
   footer?: React.ReactNode;
   onSignedIn?: () => void;
   showLogo?: boolean;
@@ -84,10 +82,14 @@ export function SignInCard({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const submit = (u = username, p = password) => {
-    const r = login(u, p, roles);
-    if (typeof r === "string") return setError(r);
+  const submit = async () => {
+    setError("");
+    setBusy(true);
+    const r = await login(username, password, roles);
+    setBusy(false);
+    if (typeof r === "string") return setError(t(r));
     if (onSignedIn) onSignedIn();
     else router.push(homeForUser(r));
   };
@@ -107,7 +109,7 @@ export function SignInCard({
         className="mt-6 space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          submit();
+          void submit();
         }}
       >
         <div>
@@ -120,20 +122,10 @@ export function SignInCard({
         </div>
         {extra}
         {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p>}
-        <button className="btn-primary w-full py-3">{t("Sign in")}</button>
+        <button className="btn-primary w-full py-3 disabled:opacity-60" disabled={busy}>{busy ? t("Signing in…") : t("Sign in")}</button>
       </form>
       {footer && <div className="mt-4 text-center text-sm text-ink/60">{footer}</div>}
 
-      <div className="mt-8 rounded-xl bg-paper p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{t("Demo · password “option”")}</p>
-        <div className={`mt-3 grid gap-2 ${demo.length > 2 ? "grid-cols-3" : demo.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-          {demo.map((d) => (
-            <button key={d.username} type="button" className="btn-ghost px-2" onClick={() => submit(d.username, "option")}>
-              {d.icon} {t(d.label)}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

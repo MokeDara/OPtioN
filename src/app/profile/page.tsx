@@ -7,11 +7,11 @@ import { AppHeader, homeForUser } from "@/components/ui";
 import { ProfileCard, ProfileFields } from "@/components/profile";
 import { ProgrammeInfo } from "@/components/programme-info";
 import { useStore } from "@/lib/store";
-import { changePassword, directorOf } from "@/lib/logic";
+import { directorOf } from "@/lib/logic";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
-  const { db, user, saveProfile, act } = useStore();
+  const { db, user, saveProfile, changePassword } = useStore();
   const [pw, setPw] = useState({ current: "", next: "", again: "" });
   const [pwError, setPwError] = useState("");
   const router = useRouter();
@@ -80,7 +80,7 @@ export default function ProfilePage() {
             e.preventDefault();
             setPwError("");
             if (pw.next !== pw.again) return setPwError("The new passwords don't match.");
-            if (act((d) => changePassword(d, user.id, pw.current, pw.next))) setPw({ current: "", next: "", again: "" });
+            void changePassword(pw.current, pw.next).then((ok) => ok && setPw({ current: "", next: "", again: "" }));
           }}
         >
           <h2 className="flex items-center gap-2 font-display text-lg font-bold">
