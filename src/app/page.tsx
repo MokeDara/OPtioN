@@ -8,13 +8,15 @@ import { CourseDetail } from "@/components/course-detail";
 import { SiteFooter } from "@/components/site-footer";
 import { useStore } from "@/lib/store";
 import { PrefsToggle, useT } from "@/lib/prefs";
-import { roundState } from "@/lib/logic";
+import { currentRound, roundState, roundTitle } from "@/lib/logic";
 
 export default function Home() {
   const { db, now, user, school } = useStore();
   const t = useT();
   // One line per year: the signed-in student's programme, otherwise the first one (MEGSI).
-  const rounds = db.rounds.filter((r) => r.programmeId === db.programme.id).sort((a, b) => a.year - b.year);
+  const rounds = ([1, 2] as const)
+    .map((y) => currentRound(db, y, now, db.programme.id))
+    .filter((r): r is NonNullable<typeof r> => !!r);
   const [openCourse, setOpenCourse] = useState<string | null>(null);
 
   // Carousel: options of the open round first, then the other options — course names only.
@@ -100,7 +102,7 @@ export default function Home() {
                 return (
                   <div key={r.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/70 px-4 py-3 backdrop-blur">
                     <span className="text-sm">
-                      <span className="font-semibold">{t(`Year ${r.year} options`)}</span>
+                      <span className="font-semibold">{t(roundTitle(r))}</span>
                       {st === "open" && (
                         <span className="text-ink/60">
                           {" "}· {t("closes in")} <Countdown to={r.closesAt} />

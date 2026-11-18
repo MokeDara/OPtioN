@@ -104,6 +104,8 @@ export interface Round {
   id: string;
   programmeId: string;
   year: Year;
+  /** S1 or S2: the round covers only that semester's Opção slots. Unset = every slot of the year (incl. annual). */
+  semester?: "S1" | "S2";
   label: string;
   opensAt: string; // ISO
   closesAt: string; // ISO

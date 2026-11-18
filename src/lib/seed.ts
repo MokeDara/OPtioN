@@ -1,7 +1,7 @@
 // Demo data based on the MEGSI study plan (2026/2027).
 // Dates are built relative to "now" so the Year 2 round is open the first time you run it.
 // Course codes other than Corporate Strategy are placeholders — replace them with the official ones.
-import type { Announcement, CalendarEvent, Course, CourseDetails, DB, OptionGroup, Professor, Programme, Selection, Semester, SupportTicket, User, Year } from "./types";
+import type { Announcement, CalendarEvent, Course, CourseDetails, DB, OptionGroup, Professor, Programme, Round, Selection, Semester, SupportTicket, User, Year } from "./types";
 
 const P = "megsi";
 
@@ -645,6 +645,13 @@ const PROGRAMMES: Programme[] = [
 export function createSeed(now = new Date()): DB {
   const t = now.getTime();
   const at = (offsetDays: number) => new Date(t + offsetDays * DAY).toISOString();
+  // Semester 2 options are chosen 12–26 January, just before Semester 2 starts (open now if we're already there).
+  const s2Window = (() => {
+    const m = now.getMonth();
+    if (m >= 1 && m <= 7) return { opensAt: at(-1), closesAt: at(13) };
+    const y = m === 0 ? now.getFullYear() : now.getFullYear() + 1;
+    return { opensAt: new Date(y, 0, 12, 10).toISOString(), closesAt: new Date(y, 0, 26, 18).toISOString() };
+  })();
   const users: User[] = [
     { id: "u_admin", username: "admin", password: "option", name: "DSI Management Team", email: "support@dsi.option.demo", role: "admin", title: "Department of Information Systems" },
     { id: "u_tech", username: "tech", password: "option", name: "Rui Barbosa", email: "rbarbosa@dsi.option.demo", role: "admin", title: "Technical support, Department of Information Systems", photo: face("1500648767791-00dcc994a43e") },
@@ -701,8 +708,8 @@ export function createSeed(now = new Date()): DB {
   });
   users.find((u) => u.id === "u_demo")!.pastOptions = { g1: byName("Digital Twins", "g1").id, g2: byName("Digital Games", "g2").id };
 
-  // Year 1 round (closed): every Year 1 student chose Opção 1 and Opção 2.
-  for (const gid of ["g1", "g2"]) {
+  // Year 1 · Semester 1 round (closed): every Year 1 student chose Opção 1. Opção 2 (Semester 2) opens later.
+  for (const gid of ["g1"]) {
     const opts = courses.filter((x) => x.groupId === gid && !x.requiresApproval);
     y1.forEach((s, i) => {
       const course = [...opts.slice((i * 2) % opts.length), ...opts].find((x) => taken(x.id) < x.capacity)!;
@@ -764,7 +771,7 @@ export function createSeed(now = new Date()): DB {
   ];
 
   return {
-    version: 9,
+    version: 10,
     school: "Department of Information Systems",
     programmes: [megsi, ...PROGRAMMES.slice(1).map((p) => ({ ...p, createdAt: at(-30) }))],
     schoolContact: SCHOOL_CONTACT,
@@ -774,14 +781,19 @@ export function createSeed(now = new Date()): DB {
     courses,
     selections,
     rounds: [
-      { id: "r1", programmeId: P, year: 1, label: "Year 1 option selection", opensAt: at(-30), closesAt: at(-16), emailSentAt: at(-30) },
+      // Year 1 picks per semester: Semester 1 slots in the autumn, Semester 2 slots shortly before Semester 2 starts.
+      { id: "r1", programmeId: P, year: 1, semester: "S1", label: "Year 1 · Semester 1 option selection", opensAt: at(-30), closesAt: at(-16), emailSentAt: at(-30) },
+      { id: "r1s2", programmeId: P, year: 1, semester: "S2", label: "Year 1 · Semester 2 option selection", ...s2Window },
       { id: "r2", programmeId: P, year: 2, label: "Year 2 option selection", opensAt: at(-1), closesAt: at(13) },
-      // The other Master's: Year 1 opens next week; Year 2 is open where the plan has Year 2 options.
-      ...PROGRAMMES.slice(1).flatMap((p) =>
-        ([1, 2] as Year[])
-          .filter((y) => groups.some((g) => g.programmeId === p.id && g.year === y))
-          .map((y) => ({ id: `r_${p.id}_${y}`, programmeId: p.id, year: y, label: `Year ${y} option selection`, opensAt: y === 1 ? at(7) : at(-1), closesAt: y === 1 ? at(21) : at(13) })),
-      ),
+      // The other Master's: Year 1 Semester 1 opens next week, Semester 2 before it starts; Year 2 is open where the plan has Year 2 options.
+      ...PROGRAMMES.slice(1).flatMap((p) => {
+        const has = (y: Year, sem?: string) => groups.some((g) => g.programmeId === p.id && g.year === y && (!sem || g.semester === sem));
+        const list: Round[] = [];
+        if (has(1, "S1")) list.push({ id: `r_${p.id}_1`, programmeId: p.id, year: 1, semester: "S1", label: "Year 1 · Semester 1 option selection", opensAt: at(7), closesAt: at(21) });
+        if (has(1, "S2")) list.push({ id: `r_${p.id}_1s2`, programmeId: p.id, year: 1, semester: "S2", label: "Year 1 · Semester 2 option selection", ...s2Window });
+        if (has(2)) list.push({ id: `r_${p.id}_2`, programmeId: p.id, year: 2, label: "Year 2 option selection", opensAt: at(-1), closesAt: at(13) });
+        return list;
+      }),
     ],
     emails: [],
     professors: PROFESSORS.map((p) => ({ ...p })),

@@ -5,7 +5,7 @@ import { AppHeader, Countdown, RoundPill, useRequireRole } from "@/components/ui
 import { Courses, download } from "@/components/staff";
 import { Requests, Rounds, Students } from "@/components/programme-admin";
 import { useStore } from "@/lib/store";
-import { generalListCsv, incompleteStudents, roundState, seatsLeft, seatsTaken, students } from "@/lib/logic";
+import { currentRound, generalListCsv, incompleteStudents, roundState, seatsLeft, seatsTaken, students } from "@/lib/logic";
 import type { Year } from "@/lib/types";
 
 type Tab = "requests" | "courses" | "rounds" | "students";
@@ -18,7 +18,7 @@ export default function DirectorPage() {
   if (!user) return null;
 
   const pendingTotal = db.selections.filter((s) => s.status === "pending").length;
-  const round = db.rounds.find((r) => r.year === year)!;
+  const round = currentRound(db, year, now)!;
   const yearCourses = db.courses.filter((c) => c.year === year && c.groupId);
   const seatsUsed = yearCourses.reduce((n, c) => n + seatsTaken(db, c.id), 0);
   const seatsAll = yearCourses.reduce((n, c) => n + c.capacity, 0);

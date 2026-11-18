@@ -6,7 +6,7 @@ import { Empty, RoundPill, SeatMeter, fmtDate } from "@/components/ui";
 import { Avatar } from "@/components/profile";
 import { ProfileModal, download } from "@/components/staff";
 import { useStore } from "@/lib/store";
-import { ectsFor, generalList, generalListCsv, incompleteStudents, pendingCount, requiredEcts, seatsLeft, seatsTaken } from "@/lib/logic";
+import { ectsFor, roundTitle, generalList, generalListCsv, incompleteStudents, pendingCount, requiredEcts, seatsLeft, seatsTaken } from "@/lib/logic";
 import type { Round, User, Year } from "@/lib/types";
 
 // ───────────── Approval requests ─────────────
@@ -84,7 +84,7 @@ export function Rounds() {
     <div className="grid gap-4 md:grid-cols-2">
       {db.rounds
         .slice()
-        .sort((a, b) => a.year - b.year)
+        .sort((a, b) => a.year - b.year || (a.semester ?? "").localeCompare(b.semester ?? ""))
         .map((r) => (
           <RoundEditor key={r.id + r.opensAt + r.closesAt} round={r} />
         ))}
@@ -99,7 +99,7 @@ function RoundEditor({ round }: { round: Round }) {
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-lg font-bold">Year {round.year} round</h3>
+        <h3 className="font-display text-lg font-bold">{roundTitle(round)}</h3>
         <RoundPill round={round} />
       </div>
       <p className="mt-1 text-xs text-ink/50">

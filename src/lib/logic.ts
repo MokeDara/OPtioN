@@ -1,6 +1,6 @@
 // Pure selection rules. No React, no storage — so they can be tested on their own
 // and later moved to Supabase (database functions / RLS) without changing the UI.
-import type { AccessRequest, Announcement, CalendarEvent, Course, DB, Email, OptionGroup, Professor, Programme, Role, Round, RoundState, Selection, SupportTicket, TicketStatus, TicketTopic, User, Year } from "./types";
+import type { AccessRequest, Announcement, CalendarEvent, Course, DB, Email, OptionGroup, Professor, Programme, Role, Round, RoundState, Selection, Semester, SupportTicket, TicketStatus, TicketTopic, User, Year } from "./types";
 import { STAFF_ROLES } from "./types";
 
 export type Result = { ok: true; db: DB; message?: string } | { ok: false; error: string };
@@ -18,6 +18,55 @@ export function roundState(round: Round, now: Date): RoundState {
 
 export function roundForYear(db: DB, year: Year, programmeId?: string): Round | undefined {
   return db.rounds.find((r) => r.year === year && (!programmeId || r.programmeId === programmeId));
+}
+
+/** The round in which an Opção slot is chosen: the one for its semester, else the whole-year round. */
+export function roundForGroup(db: DB, group: OptionGroup): Round | undefined {
+  const mine = db.rounds.filter((r) => r.programmeId === group.programmeId && r.year === group.year);
+  return (
+    mine.find((r) => r.semester === group.semester) ??
+    mine.find((r) => !r.semester) ??
+    (group.semester === "A" ? mine.find((r) => r.semester === "S1") : undefined)
+  );
+}
+
+/** The round that matters right now for a year: open, else the next to open, else the last one closed. */
+export function currentRound(db: DB, year: Year, now: Date, programmeId?: string): Round | undefined {
+  const mine = db.rounds
+    .filter((r) => r.year === year && (!programmeId || r.programmeId === programmeId))
+    .sort((a, b) => a.opensAt.localeCompare(b.opensAt));
+  return (
+    mine.find((r) => roundState(r, now) === "open") ??
+    mine.find((r) => roundState(r, now) === "upcoming") ??
+    mine[mine.length - 1]
+  );
+}
+
+/** "Year 1 · Semester 2 options" / "Year 2 options" */
+export const roundTitle = (r: Round) => `Year ${r.year}${r.semester ? ` · Semester ${r.semester === "S1" ? 1 : 2}` : ""} options`;
+
+// ───────────────────────── academic calendar ─────────────────────────
+// Semester 1 runs September → January, Semester 2 February → August. The student's semester
+// follows the date, so nobody has to update their profile when Semester 2 starts.
+
+export function currentSemester(now: Date): "S1" | "S2" {
+  const m = now.getMonth(); // 0 = January
+  return m >= 8 || m === 0 ? "S1" : "S2";
+}
+
+/** Where a student is now: "Year 1 · Semester 1". */
+export function studentTerm(user: User, now: Date): { year?: Year; semester: "S1" | "S2"; label: string } {
+  const semester = currentSemester(now);
+  const n = semester === "S1" ? 1 : 2;
+  return { year: user.year, semester, label: user.year ? `Year ${user.year} · Semester ${n}` : `Semester ${n}` };
+}
+
+/** Whether a semester of the current academic year is behind, current or ahead. */
+export function semesterStatus(semester: Semester, now: Date): "past" | "now" | "next" | "year" {
+  if (semester === "A") return "year";
+  const cur = currentSemester(now);
+  if (semester === cur) return "now";
+  return semester === "S1" ? "past" : "next";
 }
 
 // ───────────────────────── programmes (Department of Information Systems) ─────────────────────────
@@ -185,9 +234,9 @@ export function pickCourse(db: DB, studentId: string, courseId: string, now: Dat
   if (me.programmeId !== course.programmeId) return { ok: false, error: `${course.name} belongs to another programme.` };
   if (me.year !== course.year)
     return { ok: false, error: `${group.name} is for Year ${course.year} students. You're in Year ${me.year ?? "?"} — update your profile if that's wrong.` };
-  const round = roundForYear(db, course.year, course.programmeId);
+  const round = roundForGroup(db, group);
   if (!round || roundState(round, now) !== "open")
-    return { ok: false, error: `The Year ${course.year} selection round is not open.` };
+    return { ok: false, error: `The ${round ? roundTitle(round) : `Year ${course.year}`} selection is not open.` };
 
   const existing = db.selections.find(
     (s) => s.studentId === studentId && s.courseId === courseId && s.status !== "rejected",
@@ -240,7 +289,8 @@ export function dropCourse(db: DB, studentId: string, selectionId: string, now: 
   const sel = db.selections.find((s) => s.id === selectionId && s.studentId === studentId);
   if (!sel) return { ok: false, error: "Selection not found." };
   const course = db.courses.find((c) => c.id === sel.courseId)!;
-  const round = roundForYear(db, course.year, course.programmeId);
+  const g = db.groups.find((x) => x.id === course.groupId);
+  const round = g ? roundForGroup(db, g) : roundForYear(db, course.year, course.programmeId);
   if (!round || roundState(round, now) !== "open")
     return { ok: false, error: "Changes are only possible while the round is open." };
   if (sel.status === "rejected") return { ok: false, error: "Nothing to drop." };
@@ -293,8 +343,8 @@ export function sendOpeningEmails(db: DB, now: Date): DB {
     emails.unshift(
       email(
         students(db, r.year).filter((s) => s.programmeId === r.programmeId).map((s) => s.id),
-        `OPtioN! is open: choose your Year ${r.year} optionals`,
-        `The ${r.label} is now open. Choose your ${groupsForYear(db, r.year).filter((g) => g.programmeId === r.programmeId).map((g) => g.name).join(", ")} before ${closes}. Seats are first come, first served; some courses need the course director's acceptance.`,
+        `OPtioN! is open: choose your ${roundTitle(r)}`,
+        `The ${r.label} is now open. Choose your ${groupsForYear(db, r.year).filter((g) => g.programmeId === r.programmeId && roundForGroup(db, g)?.id === r.id).map((g) => g.name).join(", ")} before ${closes}. Seats are first come, first served; some courses need the course director's acceptance.`,
         now,
       ),
     );
@@ -629,8 +679,8 @@ export function deleteEvent(db: DB, id: string): Result {
 /** Calendar items: staff events plus each round's opening and closing, filtered for a year (0 = all). */
 export function calendarItems(db: DB, year: 0 | Year): (CalendarEvent & { auto?: boolean })[] {
   const auto = db.rounds.flatMap((r) => [
-    { id: `${r.id}-open`, programmeId: r.programmeId, date: isoDate(new Date(r.opensAt)), time: new Date(r.opensAt).toTimeString().slice(0, 5), title: `Year ${r.year} option selection opens`, kind: "event" as const, audience: r.year, createdBy: "system", auto: true },
-    { id: `${r.id}-close`, programmeId: r.programmeId, date: isoDate(new Date(r.closesAt)), time: new Date(r.closesAt).toTimeString().slice(0, 5), title: `Year ${r.year} option selection closes`, kind: "deadline" as const, audience: r.year, createdBy: "system", auto: true },
+    { id: `${r.id}-open`, programmeId: r.programmeId, date: isoDate(new Date(r.opensAt)), time: new Date(r.opensAt).toTimeString().slice(0, 5), title: `${roundTitle(r)}: selection opens`, kind: "event" as const, audience: r.year, createdBy: "system", auto: true },
+    { id: `${r.id}-close`, programmeId: r.programmeId, date: isoDate(new Date(r.closesAt)), time: new Date(r.closesAt).toTimeString().slice(0, 5), title: `${roundTitle(r)}: selection closes`, kind: "deadline" as const, audience: r.year, createdBy: "system", auto: true },
   ]);
   return [...db.events, ...auto]
     .filter((e) => year === 0 || e.audience === 0 || e.audience === year)

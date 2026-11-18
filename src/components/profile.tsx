@@ -1,7 +1,7 @@
 "use client";
 import { useRef } from "react";
 import { Camera, Cake, GraduationCap, ImagePlus, Link2, Sparkles, Trash2 } from "lucide-react";
-import { optionFor } from "@/lib/logic";
+import { optionFor, studentTerm } from "@/lib/logic";
 import type { DB, User, Year } from "@/lib/types";
 
 // ───────────── images ─────────────
@@ -217,8 +217,13 @@ export function ProfileCard({ db, user, showPrivate = false }: { db: DB; user: U
           <div className="translate-y-3">
             <h2 className="font-display text-2xl font-bold leading-tight">{user.name}</h2>
             <p className="text-sm text-ink/60">
-              {student ? `${user.username} · ${user.year === 1 ? "1st" : "2nd"} year · ${db.programme.short}` : user.title ?? "Course director"}
+              {student ? `${user.username} · ${db.programme.short}` : user.title ?? "Course director"}
             </p>
+            {student && (
+              <span className="mt-1.5 inline-flex rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand" title="Follows the academic calendar — updates on its own">
+                {studentTerm(user, new Date()).label}
+              </span>
+            )}
           </div>
         </div>
         {user.bio && <p className="mt-6 text-lg">{user.bio}</p>}

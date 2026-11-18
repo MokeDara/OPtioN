@@ -6,7 +6,7 @@ import { Bell, BookOpen, CheckCircle2, Clock3, LayoutDashboard, LogOut, X, XCirc
 import { useStore } from "@/lib/store";
 import { PrefsToggle, useT } from "@/lib/prefs";
 import { Avatar } from "@/components/profile";
-import { roundState } from "@/lib/logic";
+import { roundState, studentTerm } from "@/lib/logic";
 import type { Role, Round, SelectionStatus, User } from "@/lib/types";
 
 /** The department line shown on the home page and the professor access page. */
@@ -227,7 +227,7 @@ function WorkspaceSwitch({ view }: { view: StaffView }) {
 }
 
 export function AppHeader({ user, children }: { user: User; children?: React.ReactNode }) {
-  const { logout } = useStore();
+  const { logout, now } = useStore();
   const t = useT();
   const router = useRouter();
   const path = usePathname();
@@ -267,7 +267,7 @@ export function AppHeader({ user, children }: { user: User; children?: React.Rea
               <Avatar user={user} size={34} className="ring-2 ring-white/40" />
               <span className="hidden text-left lg:block">
                 <span className="block text-sm font-semibold leading-tight">{user.name}</span>
-                <span className="block text-xs text-white/60">{user.role === "student" ? `${user.username} · ${t("Year")} ${user.year}` : t(ROLE_LABEL[user.role])}</span>
+                <span className="block text-xs text-white/60">{user.role === "student" ? `${user.username} · ${t(studentTerm(user, now).label)}` : t(ROLE_LABEL[user.role])}</span>
               </span>
             </Link>
           ) : (
