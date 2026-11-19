@@ -98,7 +98,9 @@ export function SignInCard({
     <div className="card p-8">
       {showLogo && (
         <div className="mb-6 flex items-center justify-between">
-          <Logo className="text-3xl" />
+          <Link href="/" aria-label={t("Home")} className="rounded-md transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-brand">
+            <Logo className="text-3xl" />
+          </Link>
           <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand">{t(badge)}</span>
         </div>
       )}

@@ -17,7 +17,6 @@ export default function StaffLoginPage() {
         subtitle="Use the username or email and the password the DSI team gave you when your access was approved."
         idLabel="Username or email"
         idPlaceholder="name@dsi.uminho.pt"
-        showLogo={false}
         extra={
           <div className="-mt-2 text-right">
             <Link href="/staff/forgot" className="text-xs font-semibold text-ink/55 hover:text-brand hover:underline">
