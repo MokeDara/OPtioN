@@ -5,3 +5,6 @@ out
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# Local Claude Code / editor files (keep off GitHub)
+.claude/
